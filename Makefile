@@ -12,7 +12,7 @@ test: VulkanTest
 clean:
 	rm -f VulkanTest
 
-debug: DEBUG = -DDEBUG
+debug: DEBUG = -g -DDEBUG
 debug: VulkanTest
 	./VulkanTest
 
