@@ -60,7 +60,7 @@ void createInstance() {
   createInfo.enabledLayerCount = 0;
 
   // Create the Vulkan instance
-  VkResult result = vkCreateInstance(&createInfo, NULL, NULL);
+  VkResult result = vkCreateInstance(&createInfo, NULL, &instance);
   if (result != VK_SUCCESS) {
     error("Failed to create Vulkan instance\n");
     abort();
