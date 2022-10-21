@@ -8,7 +8,7 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
-#include "debug.h"
+#include "debug/print.h"
 
 #define arrayLength(arr) \
   *(&arr + 1) - arr

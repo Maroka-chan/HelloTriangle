@@ -2,7 +2,7 @@ CFLAGS = -O2
 LDFLAGS = -lglfw -lvulkan -ldl -lpthread
 
 VulkanTest: main.c
-	clang $(CFLAGS) $(DEBUG) -o VulkanTest main.c debug.c $(LDFLAGS)
+	clang $(CFLAGS) $(DEBUG) -o VulkanTest main.c debug/print.c $(LDFLAGS)
 
 .PHONY: test clean
 
