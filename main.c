@@ -9,6 +9,12 @@
 #include <string.h>
 #include "debug.h"
 
+#define arrayLength(arr) \
+  *(&arr + 1) - arr
+
+#define foreach(item, list) \
+  for(typeof(list[0]) *item = list; item < (&list)[1]; item++)
+
 
 // Window Size
 const uint32_t WIDTH = 800;
@@ -22,10 +28,10 @@ const char *validationLayers[] = {
 };
 
 // Enable Validation Layers only in Debug Mode
-#ifdef NDEBUG
-  const bool enableValidationLayers = false;
-#else
+#ifdef DEBUG
   const bool enableValidationLayers = true;
+#else
+  const bool enableValidationLayers = false;
 #endif
 
 // Handle to the Vulkan library instance
@@ -50,12 +56,11 @@ bool checkValidationLayerSupport() {
   VkLayerProperties availableLayers[layerCount];
   vkEnumerateInstanceLayerProperties(&layerCount, availableLayers);
 
-  uint32_t enabledLayerCount = *(&validationLayers + 1) - validationLayers;
-  for (int i = 0; i < enabledLayerCount; i++) {
+  foreach (layerName, validationLayers) {
     bool layerFound = false;
 
-    for (int y = 0; y < layerCount;  y++) {
-      if (strcmp(validationLayers[i], availableLayers[y].layerName) == 0) {
+    foreach (layerProperties, availableLayers) {
+      if (strcmp(*layerName, layerProperties->layerName) == 0) {
         layerFound = true;
         break;
       }
@@ -65,6 +70,36 @@ bool checkValidationLayerSupport() {
   }
 
   return true;
+}
+
+struct RequiredExtensions {
+  const char** extensions;
+  uint32_t extensionCount;
+};
+
+const struct RequiredExtensions getRequiredExtensions() {
+  struct RequiredExtensions glfwExtensions;
+  glfwExtensions.extensions = glfwGetRequiredInstanceExtensions(&glfwExtensions.extensionCount);
+
+  // Enable extra extensions when validation layers are enabled
+  if (enableValidationLayers) {
+    const char* extraExtenstions[] = {
+      VK_EXT_DEBUG_UTILS_EXTENSION_NAME
+    };
+    int extraExtensionsSize = arrayLength(extraExtenstions);
+    struct RequiredExtensions extensions;
+    extensions.extensionCount = glfwExtensions.extensionCount + extraExtensionsSize;
+    extensions.extensions = malloc(extensions.extensionCount);
+   
+    // Merge the arrays
+    int i,j;
+    for (i = 0; i < glfwExtensions.extensionCount; i++) extensions.extensions[i] = glfwExtensions.extensions[i];
+    for (i = 0, j = glfwExtensions.extensionCount; j < extensions.extensionCount && i < extraExtensionsSize; i++, j++) extensions.extensions[j] = extraExtenstions[i];
+  
+    return extensions;
+  }
+
+  return glfwExtensions;
 }
 
 void createInstance() {
@@ -85,18 +120,16 @@ void createInstance() {
   createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   createInfo.pApplicationInfo = &appInfo;
 
-  // Get the extensions needed to interface with the window system from GLFW.
-  uint32_t glfwExtensionCount = 0;
-  const char** glfwExtensions;
+  // Get the extensions required to interface with the window system from GLFW.
+  // We also get additional extensions when validation layers are enabled.
+  struct RequiredExtensions requiredExtensions = getRequiredExtensions();
 
-  glfwExtensions = glfwGetRequiredInstanceExtensions(&glfwExtensionCount);
-
-  createInfo.enabledExtensionCount = glfwExtensionCount;
-  createInfo.ppEnabledExtensionNames = glfwExtensions;
+  createInfo.enabledExtensionCount = requiredExtensions.extensionCount;
+  createInfo.ppEnabledExtensionNames = requiredExtensions.extensions;
 
   // Add validation layers if enabled
   if (enableValidationLayers) {
-    createInfo.enabledLayerCount = *(&validationLayers + 1) - validationLayers;
+    createInfo.enabledLayerCount = arrayLength(validationLayers);
     createInfo.ppEnabledLayerNames = validationLayers;
   } else {
     createInfo.enabledLayerCount = 0;
