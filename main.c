@@ -9,6 +9,7 @@
 #include <stdbool.h>
 #include <string.h>
 #include "debug/print.h"
+#include "option.h"
 
 #define arrayLength(arr) \
   *(&arr + 1) - arr
@@ -37,8 +38,14 @@ const char *validationLayers[] = {
 
 // Handle to the Vulkan library instance
 VkInstance instance;
+
+// Handle to the physical device(gpu) to use
+// This object will be implicitly destroyed when the VkInstance is destroyed
+VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+
 // Handle to the Debug callback
 VkDebugUtilsMessengerEXT debugMessenger;
+
 
 static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback (
     VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
@@ -102,6 +109,7 @@ void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT* create
     VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
   createInfo->pfnUserCallback = debugCallback;
   createInfo->pNext = NULL;
+  createInfo->flags = 0;
 }
 
 
@@ -254,9 +262,67 @@ void setupDebugMessenger() {
   }
 }
 
+typedef struct QueueFamilyIndices {
+  option(uint32_t) graphicsFamily;
+} QueueFamilyIndices;
+
+QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
+  QueueFamilyIndices indices;
+
+  uint32_t queueFamilyCount = 0;
+  vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, NULL);
+
+  VkQueueFamilyProperties queueFamilies[queueFamilyCount];
+  vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies);
+
+  int i = 0;
+  foreach(queueFamily, queueFamilies) {
+    if (queueFamily->queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+      setOption(indices.graphicsFamily, i);
+    }
+    if (indices.graphicsFamily.isSome) break;
+
+    i++;
+  }
+
+  return indices;
+}
+
+bool isDeviceSuitable(VkPhysicalDevice device) {
+  QueueFamilyIndices indices = findQueueFamilies(device);
+
+  return indices.graphicsFamily.isSome;
+}
+
+void pickPhysicalDevice() {
+  uint32_t deviceCount = 0;
+  vkEnumeratePhysicalDevices(instance, &deviceCount, NULL);
+
+  if (deviceCount == 0) {
+    error("Failed to find GPUs with Vulkan support!\n");
+    abort();
+  }
+
+  VkPhysicalDevice devices[deviceCount];
+  vkEnumeratePhysicalDevices(instance, &deviceCount, devices);
+
+  foreach(device, devices) {
+    if (isDeviceSuitable(*device)) {
+      physicalDevice = *device;
+      break;
+    }
+  }
+
+  if (physicalDevice == VK_NULL_HANDLE) {
+    error("Failed to find a suitable GPU!\n");
+    abort();
+  }
+}
+
 void initVulkan() {
   createInstance();
   setupDebugMessenger();
+  pickPhysicalDevice();
 }
 
 void mainLoop() {
