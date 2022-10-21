@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include "debug.h"
 
 
 // Window Size
@@ -59,9 +60,9 @@ void createInstance() {
   createInfo.enabledLayerCount = 0;
 
   // Create the Vulkan instance
-  VkResult result = vkCreateInstance(&createInfo, NULL, &instance);
+  VkResult result = vkCreateInstance(&createInfo, NULL, NULL);
   if (result != VK_SUCCESS) {
-    perror("Error: ");
+    error("Failed to create Vulkan instance\n");
     abort();
   }
 
@@ -73,6 +74,7 @@ void createInstance() {
   VkExtensionProperties extensions[extensionCount];
   vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, extensions);
 
+  // Print the available extensions
   printf("Available Extensions:\n");
 
   for (int i = 0; i < extensionCount; i++) {
