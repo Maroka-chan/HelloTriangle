@@ -5,6 +5,8 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <stdbool.h>
+#include <string.h>
 #include "debug.h"
 
 
@@ -13,6 +15,18 @@ const uint32_t WIDTH = 800;
 const uint32_t HEIGHT = 600;
 
 GLFWwindow* window;
+
+// Validation Layers to request/enable
+const char *validationLayers[] = {
+  "VK_LAYER_KHRONOS_validation"
+};
+
+// Enable Validation Layers only in Debug Mode
+#ifdef NDEBUG
+  const bool enableValidationLayers = false;
+#else
+  const bool enableValidationLayers = true;
+#endif
 
 // Handle to the Vulkan library instance
 VkInstance instance;
@@ -27,6 +41,30 @@ void initWindow() {
   glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
   window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", NULL, NULL);
+}
+
+bool checkValidationLayerSupport() {
+  uint32_t layerCount;
+  vkEnumerateInstanceLayerProperties(&layerCount, NULL);
+
+  VkLayerProperties availableLayers[layerCount];
+  vkEnumerateInstanceLayerProperties(&layerCount, availableLayers);
+
+  uint32_t enabledLayerCount = *(&validationLayers + 1) - validationLayers;
+  for (int i = 0; i < enabledLayerCount; i++) {
+    bool layerFound = false;
+
+    for (int y = 0; y < layerCount;  y++) {
+      if (strcmp(validationLayers[i], availableLayers[y].layerName) == 0) {
+        layerFound = true;
+        break;
+      }
+    }
+
+    if (!layerFound) return false;
+  }
+
+  return true;
 }
 
 void createInstance() {
@@ -56,8 +94,13 @@ void createInstance() {
   createInfo.enabledExtensionCount = glfwExtensionCount;
   createInfo.ppEnabledExtensionNames = glfwExtensions;
 
-  // Leave the global validation layers disabled for now
-  createInfo.enabledLayerCount = 0;
+  // Add validation layers if enabled
+  if (enableValidationLayers) {
+    createInfo.enabledLayerCount = *(&validationLayers + 1) - validationLayers;
+    createInfo.ppEnabledLayerNames = validationLayers;
+  } else {
+    createInfo.enabledLayerCount = 0;
+  }
 
   // Create the Vulkan instance
   VkResult result = vkCreateInstance(&createInfo, NULL, &instance);
@@ -79,6 +122,12 @@ void createInstance() {
 
   for (int i = 0; i < extensionCount; i++) {
     printf("\t %s\n", extensions[i].extensionName);
+  }
+
+  // Check that the requested validation layers are available
+  if (enableValidationLayers && !checkValidationLayerSupport()) {
+    error("Validation layers requested, but not available!");
+    abort();
   }
 }
 
