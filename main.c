@@ -303,7 +303,8 @@ SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) {
   return details;
 }
 
-
+// Color Depth
+// Chooses the color format and colorspace
 VkSurfaceFormatKHR chooseSwapSurfaceFormat(const VkSurfaceFormatKHR* availableFormats) {
   foreach(availableFormat, availableFormats) {
     if (availableFormat->format == VK_FORMAT_B8G8R8A8_SRGB &&
@@ -315,6 +316,22 @@ VkSurfaceFormatKHR chooseSwapSurfaceFormat(const VkSurfaceFormatKHR* availableFo
   return availableFormats[0];
 }
 
+// Conditions for "swapping" images to the screen
+//
+// For example, VK_PRESENT_MODE_IMMEDIATE_KHR submits images to
+// the screen immediately which can cause screen tearing.
+//
+// VK_PRESENT_MODE_FIFO_KHR we use a first in first out(FIFO) queue
+// and if the queue is full the program has to wait.
+//
+// VK_PRESENT_MODE_FIFO_RELAXED_KHR is like FIFO_KHR, but transfers the
+// image immediately instead of waiting if the last vertical blank was empty.
+//
+// VK_PRESENT_MODE_MAILBOX_KHR is like FIFO_KHR but instead of waiting when the queue is full, it
+// overwrites the already queued images with newer ones. This renders frames as fast as possible while still
+// avoiding screen tearing and results in fewer latency issues than standard vertical sync. It is not as
+// power efficient since the program never stops to wait, so it is not the best choice where energy usage is
+// more important like on a mobile device.
 VkPresentModeKHR chooseSwapPresentMode(const VkPresentModeKHR* availablePresentModes) {
   foreach(availablePresentMode, availablePresentModes) {
     if (*availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
@@ -324,6 +341,34 @@ VkPresentModeKHR chooseSwapPresentMode(const VkPresentModeKHR* availablePresentM
 
 
   return VK_PRESENT_MODE_FIFO_KHR;
+}
+
+double clamp(double d, double min, double max) {
+  const double t = d < min ? min : d;
+  return t > max ? max : t;
+}
+
+VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR* capabilities) {
+  if (capabilities->currentExtent.width != UINT32_MAX) {
+    return capabilities->currentExtent;
+  } else {
+    int width, height;
+    glfwGetFramebufferSize(window, &width, &height);
+
+    VkExtent2D actualExtent = {
+      (uint32_t) width,
+      (uint32_t) height
+    };
+
+    actualExtent.width = clamp(actualExtent.width,
+        capabilities->minImageExtent.width,
+        capabilities->maxImageExtent.width);
+    actualExtent.height = clamp(actualExtent.height,
+        capabilities->minImageExtent.height,
+        capabilities->maxImageExtent.height);
+
+    return actualExtent;
+  }
 }
 
 
