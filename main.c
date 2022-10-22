@@ -29,6 +29,12 @@ const char *validationLayers[] = {
   "VK_LAYER_KHRONOS_validation"
 };
 
+// Device Extensions to enable
+const char *deviceExtensions[] = {
+  VK_KHR_SWAPCHAIN_EXTENSION_NAME
+};
+
+
 // Enable Validation Layers only in Debug Mode
 #ifdef DEBUG
   const bool enableValidationLayers = true;
@@ -319,10 +325,35 @@ QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
   return indices;
 }
 
-bool isDeviceSuitable(VkPhysicalDevice device) {
-  QueueFamilyIndices indices = findQueueFamilies(device);
+bool checkDeviceExtensionSupport(VkPhysicalDevice* device) {
+  uint32_t extensionCount;
+  vkEnumerateDeviceExtensionProperties(*device, NULL, &extensionCount, NULL);
+  
+  VkExtensionProperties availableExtensions[extensionCount];
+  vkEnumerateDeviceExtensionProperties(*device, NULL, &extensionCount, availableExtensions);
 
-  return isQueueFamilyIndicesComplete(&indices);
+  // TODO Temporary solution since we do not have a Set data structure
+  uint32_t requiredExtensionCount = arrayLength(deviceExtensions);
+  uint32_t requiredExtensionsFound = 0;
+  foreach(requiredExtension, deviceExtensions) {
+    if (requiredExtensionsFound == requiredExtensionCount) break;
+    foreach(extension, availableExtensions) {
+      if (strcmp(extension->extensionName, *requiredExtension)) {
+        requiredExtensionsFound++;
+        break;
+      }
+    }
+  }
+
+  return requiredExtensionsFound == requiredExtensionCount;
+}
+
+bool isDeviceSuitable(VkPhysicalDevice* device) {
+  QueueFamilyIndices indices = findQueueFamilies(*device);
+
+  bool extensionsSupported = checkDeviceExtensionSupport(device);
+
+  return isQueueFamilyIndicesComplete(&indices) && extensionsSupported;
 }
 
 void pickPhysicalDevice() {
@@ -338,7 +369,7 @@ void pickPhysicalDevice() {
   vkEnumeratePhysicalDevices(instance, &deviceCount, devices);
 
   foreach(device, devices) {
-    if (isDeviceSuitable(*device)) {
+    if (isDeviceSuitable(device)) {
       physicalDevice = *device;
       break;
     }
