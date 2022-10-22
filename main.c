@@ -353,13 +353,20 @@ void pickPhysicalDevice() {
 void createLogicalDevice() {
   QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
-  uint32_t queueCount = 2;
+  uint32_t queueCount = 0;
+  // TODO Temporary solution to avoid duplicates since we do not have a Set data structure
+  if (indices.graphicsFamily.value == indices.presentFamily.value)
+    queueCount = 1;
+  else queueCount = 2;
   // TODO Implement List data structure
   VkDeviceQueueCreateInfo queueCreateInfos[queueCount];
   // TODO Implement Set data structure
   // The index to the queue families are supposed to only be added once if they are the same
   // , but they will be added multiple times since we are not using a Set.
-  uint32_t uniqueQueueFamilies[] = { indices.graphicsFamily.value, indices.presentFamily.value };
+  uint32_t uniqueQueueFamilies[queueCount];
+  uniqueQueueFamilies[0] = indices.graphicsFamily.value;
+  // TODO Temporary solution to avoid duplicates since we do not have a Set data structure
+  if (queueCount == 2) uniqueQueueFamilies[1] = indices.presentFamily.value;
 
   float queuePriority = 1.0f;
   for(int i = 0; i < queueCount; i++) {
