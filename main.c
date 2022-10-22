@@ -281,6 +281,29 @@ void setupDebugMessenger() {
   }
 }
 
+typedef struct SwapChainSupportDetails {
+  VkSurfaceCapabilitiesKHR capabilities;
+  VkSurfaceFormatKHR* formats;
+  VkPresentModeKHR* presentModes;
+} SwapChainSupportDetails;
+
+SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) {
+  SwapChainSupportDetails details;
+
+  vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
+
+  uint32_t formatCount;
+  vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, NULL);
+
+  if (formatCount != 0) {
+    details.formats = malloc(formatCount * sizeof(typeof(*details.formats)));
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, details.formats);
+  }
+
+  return details;
+}
+
+
 typedef struct QueueFamilyIndices {
   Option(uint32_t) graphicsFamily;
   Option(uint32_t) presentFamily;
@@ -353,7 +376,18 @@ bool isDeviceSuitable(VkPhysicalDevice* device) {
 
   bool extensionsSupported = checkDeviceExtensionSupport(device);
 
-  return isQueueFamilyIndicesComplete(&indices) && extensionsSupported;
+  bool swapChainAdequate = false;
+  if (extensionsSupported) {
+    SwapChainSupportDetails swapChainSupport = querySwapChainSupport(*device);
+    swapChainAdequate =
+      arrayLength(swapChainSupport.formats) != 0 &&
+      arrayLength(swapChainSupport.presentModes) != 0;
+  }
+
+  return 
+    isQueueFamilyIndicesComplete(&indices) &&
+    extensionsSupported &&
+    swapChainAdequate;
 }
 
 void pickPhysicalDevice() {
