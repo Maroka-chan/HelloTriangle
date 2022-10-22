@@ -47,9 +47,12 @@ VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 VkDevice device;
 
 // Handle to the graphics queue
-// Device queue are implicitly cleaned up when
+// Device queues are implicitly cleaned up when
 // the device is destroyed
 VkQueue graphicsQueue;
+// Handle to the present queue
+VkQueue presentQueue;
+
 
 // Handle to the Debug callback
 VkDebugUtilsMessengerEXT debugMessenger;
@@ -69,6 +72,10 @@ static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback (
     info("Validation Layer: %s\n", pCallbackData->pMessage);
   return VK_FALSE;
 }
+
+
+// Handle to the window surface
+VkSurfaceKHR surface;
 
 
 // Loads the vkCreateDebugUtilsMessengerEXT extension function
@@ -231,7 +238,7 @@ void createInstance() {
   VkResult result = vkCreateInstance(&createInfo, NULL, &instance);
   if (result != VK_SUCCESS) {
     error("Failed to create Vulkan instance!\n");
-    abort();
+    exit(EXIT_FAILURE);
   }
 
   // Get the number of available extensions
@@ -252,7 +259,7 @@ void createInstance() {
   // Check that the requested validation layers are available
   if (enableValidationLayers && !checkValidationLayerSupport()) {
     error("Validation layers requested, but not available!\n");
-    abort();
+    exit(EXIT_FAILURE);
   }
 }
 
@@ -264,13 +271,19 @@ void setupDebugMessenger() {
 
   if (CreateDebugUtilsMessengerEXT(instance, &createInfo, NULL, &debugMessenger) != VK_SUCCESS) {
     error("Failed to set up debug messenger!\n");
-    abort();
+    exit(EXIT_FAILURE);
   }
 }
 
 typedef struct QueueFamilyIndices {
-  option(uint32_t) graphicsFamily;
+  Option(uint32_t) graphicsFamily;
+  Option(uint32_t) presentFamily;
 } QueueFamilyIndices;
+
+bool isQueueFamilyIndicesComplete(QueueFamilyIndices* queuefamilyindices) {
+  return queuefamilyindices->graphicsFamily.isSome &&
+    queuefamilyindices->presentFamily.isSome;
+}
 
 QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
   QueueFamilyIndices indices = {};
@@ -281,12 +294,24 @@ QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
   VkQueueFamilyProperties queueFamilies[queueFamilyCount];
   vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies);
 
+  // Find queue families that support the features we want.
+  // The present and graphics family can be separate queues, but
+  // are often the same. Logic can be added to prefer a physical device
+  // that supports both in the same queue for improved performance.
   int i = 0;
+  // TODO Implement Linked List data structure
   foreach(queueFamily, queueFamilies) {
     if (queueFamily->queueFlags & VK_QUEUE_GRAPHICS_BIT) {
       setOption(indices.graphicsFamily, i);
     }
-    if (indices.graphicsFamily.isSome) break;
+    
+    VkBool32 presentSupport = false;
+    vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
+    if (presentSupport) {
+      setOption(indices.presentFamily, i);
+    }
+
+    if (isQueueFamilyIndicesComplete(&indices)) break;
 
     i++;
   }
@@ -297,7 +322,7 @@ QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
 bool isDeviceSuitable(VkPhysicalDevice device) {
   QueueFamilyIndices indices = findQueueFamilies(device);
 
-  return indices.graphicsFamily.isSome;
+  return isQueueFamilyIndicesComplete(&indices);
 }
 
 void pickPhysicalDevice() {
@@ -306,7 +331,7 @@ void pickPhysicalDevice() {
 
   if (deviceCount == 0) {
     error("Failed to find GPUs with Vulkan support!\n");
-    abort();
+    exit(EXIT_FAILURE);
   }
 
   VkPhysicalDevice devices[deviceCount];
@@ -321,26 +346,38 @@ void pickPhysicalDevice() {
 
   if (physicalDevice == VK_NULL_HANDLE) {
     error("Failed to find a suitable GPU!\n");
-    abort();
+    exit(EXIT_FAILURE);
   }
 }
 
 void createLogicalDevice() {
   QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
 
-  VkDeviceQueueCreateInfo queueCreateInfo = {};
-  queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-  queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value;
-  queueCreateInfo.queueCount = 1;
+  uint32_t queueCount = 2;
+  // TODO Implement List data structure
+  VkDeviceQueueCreateInfo queueCreateInfos[queueCount];
+  // TODO Implement Set data structure
+  // The index to the queue families are supposed to only be added once if they are the same
+  // , but they will be added multiple times since we are not using a Set.
+  uint32_t uniqueQueueFamilies[] = { indices.graphicsFamily.value, indices.presentFamily.value };
+
   float queuePriority = 1.0f;
-  queueCreateInfo.pQueuePriorities = &queuePriority;
+  for(int i = 0; i < queueCount; i++) {
+    uint32_t queueFamily = uniqueQueueFamilies[i];
+    VkDeviceQueueCreateInfo queueCreateInfo = {};
+    queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queueCreateInfo.queueFamilyIndex = queueFamily;
+    queueCreateInfo.queueCount = 1;
+    queueCreateInfo.pQueuePriorities = &queuePriority;
+    queueCreateInfos[i] = queueCreateInfo;
+  }
 
   VkPhysicalDeviceFeatures deviceFeatures = {};
 
   VkDeviceCreateInfo createInfo = {};
   createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-  createInfo.pQueueCreateInfos = &queueCreateInfo;
-  createInfo.queueCreateInfoCount = 1;
+  createInfo.pQueueCreateInfos = queueCreateInfos;
+  createInfo.queueCreateInfoCount = queueCount;
 
   createInfo.pEnabledFeatures = &deviceFeatures;
   createInfo.enabledExtensionCount = 0;
@@ -357,16 +394,25 @@ void createLogicalDevice() {
 
   if (vkCreateDevice(physicalDevice, &createInfo, NULL, &device) != VK_SUCCESS) {
     error("Failed to create logical device!\n");
-    abort();
+    exit(EXIT_FAILURE);
   }
 
-  // We are only creating a single queue from this family, so we'll simply use the queue at index 0
+  // We are only creating a single queue from each of these families, so we'll simply use the queue at index 0
   vkGetDeviceQueue(device, indices.graphicsFamily.value, 0, &graphicsQueue);
+  vkGetDeviceQueue(device, indices.presentFamily.value, 0, &presentQueue);
+}
+
+void createSurface() {
+  if (glfwCreateWindowSurface(instance, window, NULL, &surface) != VK_SUCCESS) {
+    error("Failed to create window surface!\n");
+    exit(EXIT_FAILURE);
+  }
 }
 
 void initVulkan() {
   createInstance();
   setupDebugMessenger();
+  createSurface();
   pickPhysicalDevice();
   createLogicalDevice();
 }
@@ -384,6 +430,7 @@ void cleanup() {
     DestroyDebugUtilsMessengerEXT(instance, debugMessenger, NULL);
   }
 
+  vkDestroySurfaceKHR(instance, surface, NULL);
   vkDestroyInstance(instance, NULL);
 
   glfwDestroyWindow(window);
