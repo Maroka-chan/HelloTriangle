@@ -304,6 +304,18 @@ SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) {
 }
 
 
+VkSurfaceFormatKHR chooseSwapSurfaceFormat(const VkSurfaceFormatKHR** availableFormats) {
+  foreach(availableFormat, *availableFormats) {
+    if (availableFormat->format == VK_FORMAT_B8G8R8A8_SRGB &&
+        availableFormat->colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
+      return *availableFormat;
+    }
+  }
+
+  return *availableFormats[0];
+}
+
+
 typedef struct QueueFamilyIndices {
   Option(uint32_t) graphicsFamily;
   Option(uint32_t) presentFamily;
