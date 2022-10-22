@@ -43,6 +43,14 @@ VkInstance instance;
 // This object will be implicitly destroyed when the VkInstance is destroyed
 VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 
+// Handle to the logical device used for interfacing the physical device
+VkDevice device;
+
+// Handle to the graphics queue
+// Device queue are implicitly cleaned up when
+// the device is destroyed
+VkQueue graphicsQueue;
+
 // Handle to the Debug callback
 VkDebugUtilsMessengerEXT debugMessenger;
 
@@ -108,8 +116,6 @@ void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT* create
     VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
     VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
   createInfo->pfnUserCallback = debugCallback;
-  createInfo->pNext = NULL;
-  createInfo->flags = 0;
 }
 
 
@@ -156,7 +162,7 @@ typedef struct RequiredExtensions {
 } RequiredExtensions;
 
 const RequiredExtensions getRequiredExtensions() {
-  RequiredExtensions glfwExtensions;
+  RequiredExtensions glfwExtensions = {};
   glfwExtensions.extensions = glfwGetRequiredInstanceExtensions(&glfwExtensions.extensionCount);
 
   // Enable extra extensions when validation layers are enabled
@@ -165,7 +171,7 @@ const RequiredExtensions getRequiredExtensions() {
       VK_EXT_DEBUG_UTILS_EXTENSION_NAME
     };
     int extraExtensionsSize = arrayLength(extraExtenstions);
-    RequiredExtensions extensions;
+    RequiredExtensions extensions = {};
     extensions.extensionCount = glfwExtensions.extensionCount + extraExtensionsSize;
     extensions.extensions = malloc(extensions.extensionCount);
    
@@ -182,7 +188,7 @@ const RequiredExtensions getRequiredExtensions() {
 
 void createInstance() {
   // We specify some information about our application so that it can be used for optimizations. (Optional)
-  VkApplicationInfo appInfo;
+  VkApplicationInfo appInfo = {};
 
   appInfo.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
   appInfo.pApplicationName = "Hello Triangle";
@@ -193,7 +199,7 @@ void createInstance() {
 
 
   // Here we tell the Vulkan Driver which Global Extensions and Validation Layers we want to use. (Required)
-  VkInstanceCreateInfo createInfo;
+  VkInstanceCreateInfo createInfo = {};
 
   createInfo.sType = VK_STRUCTURE_TYPE_INSTANCE_CREATE_INFO;
   createInfo.pApplicationInfo = &appInfo;
@@ -206,7 +212,7 @@ void createInstance() {
   createInfo.ppEnabledExtensionNames = requiredExtensions.extensions;
 
   // Add validation layers if enabled
-  VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo;
+  VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = {};
   if (enableValidationLayers) {
     createInfo.enabledLayerCount = arrayLength(validationLayers);
     createInfo.ppEnabledLayerNames = validationLayers;
@@ -253,7 +259,7 @@ void createInstance() {
 void setupDebugMessenger() {
   if (!enableValidationLayers) return;
   
-  VkDebugUtilsMessengerCreateInfoEXT createInfo;
+  VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
   populateDebugMessengerCreateInfo(&createInfo);
 
   if (CreateDebugUtilsMessengerEXT(instance, &createInfo, NULL, &debugMessenger) != VK_SUCCESS) {
@@ -267,7 +273,7 @@ typedef struct QueueFamilyIndices {
 } QueueFamilyIndices;
 
 QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
-  QueueFamilyIndices indices;
+  QueueFamilyIndices indices = {};
 
   uint32_t queueFamilyCount = 0;
   vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, NULL);
@@ -319,10 +325,50 @@ void pickPhysicalDevice() {
   }
 }
 
+void createLogicalDevice() {
+  QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+
+  VkDeviceQueueCreateInfo queueCreateInfo = {};
+  queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+  queueCreateInfo.queueFamilyIndex = indices.graphicsFamily.value;
+  queueCreateInfo.queueCount = 1;
+  float queuePriority = 1.0f;
+  queueCreateInfo.pQueuePriorities = &queuePriority;
+
+  VkPhysicalDeviceFeatures deviceFeatures = {};
+
+  VkDeviceCreateInfo createInfo = {};
+  createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+  createInfo.pQueueCreateInfos = &queueCreateInfo;
+  createInfo.queueCreateInfoCount = 1;
+
+  createInfo.pEnabledFeatures = &deviceFeatures;
+  createInfo.enabledExtensionCount = 0;
+
+  // For compatibility with older versions of Vulkan
+  // There is no longer any distinction between instance and 
+  // device specific validation layers
+  if (enableValidationLayers) {
+    createInfo.enabledLayerCount = arrayLength(validationLayers);
+    createInfo.ppEnabledLayerNames = validationLayers;
+  } else {
+    createInfo.enabledLayerCount = 0;
+  }
+
+  if (vkCreateDevice(physicalDevice, &createInfo, NULL, &device) != VK_SUCCESS) {
+    error("Failed to create logical device!\n");
+    abort();
+  }
+
+  // We are only creating a single queue from this family, so we'll simply use the queue at index 0
+  vkGetDeviceQueue(device, indices.graphicsFamily.value, 0, &graphicsQueue);
+}
+
 void initVulkan() {
   createInstance();
   setupDebugMessenger();
   pickPhysicalDevice();
+  createLogicalDevice();
 }
 
 void mainLoop() {
@@ -332,6 +378,8 @@ void mainLoop() {
 }
 
 void cleanup() {
+  vkDestroyDevice(device, NULL);
+
   if (enableValidationLayers) {
     DestroyDebugUtilsMessengerEXT(instance, debugMessenger, NULL);
   }
