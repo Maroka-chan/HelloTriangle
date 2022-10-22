@@ -418,7 +418,8 @@ void createLogicalDevice() {
   createInfo.queueCreateInfoCount = queueCount;
 
   createInfo.pEnabledFeatures = &deviceFeatures;
-  createInfo.enabledExtensionCount = 0;
+  createInfo.enabledExtensionCount = arrayLength(deviceExtensions);
+  createInfo.ppEnabledExtensionNames = deviceExtensions;
 
   // For compatibility with older versions of Vulkan
   // There is no longer any distinction between instance and 
