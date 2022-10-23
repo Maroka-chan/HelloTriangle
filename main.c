@@ -59,6 +59,9 @@ VkQueue graphicsQueue;
 // Handle to the present queue
 VkQueue presentQueue;
 
+// Handle to the swap chain
+VkSwapchainKHR swapChain;
+
 
 // Handle to the Debug callback
 VkDebugUtilsMessengerEXT debugMessenger;
@@ -348,9 +351,9 @@ double clamp(double d, double min, double max) {
   return t > max ? max : t;
 }
 
-VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR* capabilities) {
-  if (capabilities->currentExtent.width != UINT32_MAX) {
-    return capabilities->currentExtent;
+VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR capabilities) {
+  if (capabilities.currentExtent.width != UINT32_MAX) {
+    return capabilities.currentExtent;
   } else {
     int width, height;
     glfwGetFramebufferSize(window, &width, &height);
@@ -361,11 +364,11 @@ VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR* capabilities) {
     };
 
     actualExtent.width = clamp(actualExtent.width,
-        capabilities->minImageExtent.width,
-        capabilities->maxImageExtent.width);
+        capabilities.minImageExtent.width,
+        capabilities.maxImageExtent.width);
     actualExtent.height = clamp(actualExtent.height,
-        capabilities->minImageExtent.height,
-        capabilities->maxImageExtent.height);
+        capabilities.minImageExtent.height,
+        capabilities.maxImageExtent.height);
 
     return actualExtent;
   }
@@ -550,12 +553,68 @@ void createSurface() {
   }
 }
 
+void createSwapChain() {
+  SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
+  
+  VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
+  VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
+  VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
+
+  // We should request at least one more than the minimum to avoid having to wait for
+  // the driver to complete internal operations before we can acquire another image to render to.
+  uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
+
+  // Make sure we do not exceed the maximum image count.
+  // We first check that the maximum is larger than 0 since
+  // 0 is a special value that means that there is no maximum.
+  if (swapChainSupport.capabilities.maxImageCount > 0 &&
+      imageCount > swapChainSupport.capabilities.maxImageCount) {
+    imageCount = swapChainSupport.capabilities.maxImageCount;
+  }
+
+  VkSwapchainCreateInfoKHR createInfo = {};
+  createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
+  createInfo.surface = surface;
+  createInfo.minImageCount = imageCount;
+  createInfo.imageFormat = surfaceFormat.format;
+  createInfo.imageColorSpace = surfaceFormat.colorSpace;
+  createInfo.imageExtent = extent;
+  createInfo.imageArrayLayers = 1;  // The imageArrayLayers specifies the amount of layers each image consists of.
+                                    // This is always 1 unless you are developing a stereoscopic 3D application
+  createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; // Change if you want to do post-processing etc.
+
+  QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+  uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value, indices.presentFamily.value };
+
+  if (indices.graphicsFamily.value != indices.presentFamily.value) {
+    createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
+    createInfo.queueFamilyIndexCount = 2;
+    createInfo.pQueueFamilyIndices = queueFamilyIndices;
+  } else {
+    createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
+    createInfo.queueFamilyIndexCount = 0; // Optional
+    createInfo.pQueueFamilyIndices = NULL; // Optional
+  }
+
+  createInfo.preTransform = swapChainSupport.capabilities.currentTransform; // currentTransform tells that we do not want any transformation
+  createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // Ignore alpha channel, so that it does not blend with other windows in the window system
+  createInfo.presentMode = presentMode;
+  createInfo.clipped = VK_TRUE; // We do not care about the color of obscured pixels, for example because another window is in front of them
+  createInfo.oldSwapchain = VK_NULL_HANDLE; // Assume we'll only ever create one swap chain for now
+  
+  if (vkCreateSwapchainKHR(device, &createInfo, NULL, &swapChain) != VK_SUCCESS) {
+    error("Failed to create swap chain!\n");
+    exit(EXIT_FAILURE);
+  }
+}
+
 void initVulkan() {
   createInstance();
   setupDebugMessenger();
   createSurface();
   pickPhysicalDevice();
   createLogicalDevice();
+  createSwapChain();
 }
 
 void mainLoop() {
@@ -565,6 +624,8 @@ void mainLoop() {
 }
 
 void cleanup() {
+  vkDestroySwapchainKHR(device, swapChain, NULL);
+
   vkDestroyDevice(device, NULL);
 
   if (enableValidationLayers) {
