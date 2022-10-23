@@ -1,3 +1,4 @@
+#include <stddef.h>
 #include <stdint.h>
 #include <vulkan/vk_platform.h>
 #include <vulkan/vulkan_core.h>
@@ -59,6 +60,13 @@ VkQueue graphicsQueue;
 // Handle to the present queue
 VkQueue presentQueue;
 
+// Surface format count
+uint32_t surfaceFormatCount;
+// Present mode count
+uint32_t presentModeCount;
+// Swap chain image count
+uint32_t swapChainImageCount;
+
 // Handle to the swap chain
 VkSwapchainKHR swapChain;
 
@@ -71,6 +79,9 @@ VkImage* swapChainImages;
 VkFormat swapChainImageFormat;
 // Handle to the swap chain extent
 VkExtent2D swapChainExtent;
+
+// Handle to the swap chain image views
+VkImageView* swapChainImageViews;
 
 
 // Handle to the Debug callback
@@ -196,13 +207,13 @@ const RequiredExtensions getRequiredExtensions() {
     const char* extraExtenstions[] = {
       VK_EXT_DEBUG_UTILS_EXTENSION_NAME
     };
-    int extraExtensionsSize = arrayLength(extraExtenstions);
+    size_t extraExtensionsSize = arrayLength(extraExtenstions);
     RequiredExtensions extensions = {};
     extensions.extensionCount = glfwExtensions.extensionCount + extraExtensionsSize;
     extensions.extensions = malloc(extensions.extensionCount);
    
     // Merge the arrays
-    int i,j;
+    size_t i,j;
     for (i = 0; i < glfwExtensions.extensionCount; i++) extensions.extensions[i] = glfwExtensions.extensions[i];
     for (i = 0, j = glfwExtensions.extensionCount; j < extensions.extensionCount && i < extraExtensionsSize; i++, j++) extensions.extensions[j] = extraExtenstions[i];
   
@@ -271,7 +282,7 @@ void createInstance() {
   // Print the available extensions
   printf("Available Extensions:\n");
 
-  for (int i = 0; i < extensionCount; i++) {
+  for (size_t i = 0; i < extensionCount; i++) {
     printf("\t %s\n", extensions[i].extensionName);
   }
 
@@ -305,12 +316,18 @@ SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) {
 
   vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
 
-  uint32_t formatCount;
-  vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, NULL);
+  vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &surfaceFormatCount, NULL);
 
-  if (formatCount != 0) {
-    details.formats = malloc(formatCount * sizeof(typeof(*details.formats)));
-    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &formatCount, details.formats);
+  if (surfaceFormatCount != 0) {
+    details.formats = malloc(surfaceFormatCount * sizeof(VkSurfaceFormatKHR));
+    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &surfaceFormatCount, details.formats);
+  }
+
+  vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, NULL);
+
+  if (presentModeCount != 0) {
+    details.presentModes = malloc(presentModeCount * sizeof(VkPresentModeKHR));
+    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, details.presentModes);
   }
 
   return details;
@@ -437,7 +454,7 @@ bool checkDeviceExtensionSupport(VkPhysicalDevice* device) {
   vkEnumerateDeviceExtensionProperties(*device, NULL, &extensionCount, availableExtensions);
 
   // TODO Temporary solution since we do not have a Set data structure
-  uint32_t requiredExtensionCount = arrayLength(deviceExtensions);
+  size_t requiredExtensionCount = arrayLength(deviceExtensions);
   uint32_t requiredExtensionsFound = 0;
   foreach(requiredExtension, deviceExtensions) {
     if (requiredExtensionsFound == requiredExtensionCount) break;
@@ -460,9 +477,9 @@ bool isDeviceSuitable(VkPhysicalDevice* device) {
   bool swapChainAdequate = false;
   if (extensionsSupported) {
     SwapChainSupportDetails swapChainSupport = querySwapChainSupport(*device);
-    swapChainAdequate =
-      arrayLength(swapChainSupport.formats) != 0 &&
-      arrayLength(swapChainSupport.presentModes) != 0;
+    swapChainAdequate = //TODO
+      surfaceFormatCount != 0 &&
+      presentModeCount != 0;
   }
 
   return 
@@ -572,20 +589,20 @@ void createSwapChain() {
 
   // We should request at least one more than the minimum to avoid having to wait for
   // the driver to complete internal operations before we can acquire another image to render to.
-  uint32_t imageCount = swapChainSupport.capabilities.minImageCount + 1;
+  swapChainImageCount = swapChainSupport.capabilities.minImageCount + 1;
 
   // Make sure we do not exceed the maximum image count.
   // We first check that the maximum is larger than 0 since
   // 0 is a special value that means that there is no maximum.
   if (swapChainSupport.capabilities.maxImageCount > 0 &&
-      imageCount > swapChainSupport.capabilities.maxImageCount) {
-    imageCount = swapChainSupport.capabilities.maxImageCount;
+      swapChainImageCount > swapChainSupport.capabilities.maxImageCount) {
+    swapChainImageCount = swapChainSupport.capabilities.maxImageCount;
   }
 
   VkSwapchainCreateInfoKHR createInfo = {};
   createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
   createInfo.surface = surface;
-  createInfo.minImageCount = imageCount;
+  createInfo.minImageCount = swapChainImageCount;
   createInfo.imageFormat = surfaceFormat.format;
   createInfo.imageColorSpace = surfaceFormat.colorSpace;
   createInfo.imageExtent = extent;
@@ -617,12 +634,41 @@ void createSwapChain() {
     exit(EXIT_FAILURE);
   }
 
-  vkGetSwapchainImagesKHR(device, swapChain, &imageCount, NULL);
-  swapChainImages = malloc(imageCount * sizeof(typeof(*swapChainImages)));
-  vkGetSwapchainImagesKHR(device, swapChain, &imageCount, swapChainImages);
+  vkGetSwapchainImagesKHR(device, swapChain, &swapChainImageCount, NULL);
+  swapChainImages = malloc(swapChainImageCount * sizeof(VkImage));
+  vkGetSwapchainImagesKHR(device, swapChain, &swapChainImageCount, swapChainImages);
 
   swapChainImageFormat = surfaceFormat.format;
   swapChainExtent = extent;
+}
+
+void createImageViews() {
+  swapChainImageViews = malloc(swapChainImageCount * sizeof(VkImageView));
+
+  for (size_t i = 0; i < swapChainImageCount; i++) {
+    VkImageViewCreateInfo createInfo = {};
+    createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    createInfo.image = swapChainImages[i];
+    createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    createInfo.format = swapChainImageFormat;
+
+    createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
+    createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
+    createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
+    createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
+
+    createInfo.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    createInfo.subresourceRange.baseMipLevel = 0;
+    createInfo.subresourceRange.levelCount = 1;
+    createInfo.subresourceRange.baseArrayLayer = 0;
+    createInfo.subresourceRange.layerCount = 1;
+
+    if (vkCreateImageView(device, &createInfo, NULL, &swapChainImageViews[i]) != VK_SUCCESS) {
+      error("Failed to create image views!\n");
+      exit(EXIT_FAILURE);
+    }
+  }
+
 }
 
 void initVulkan() {
@@ -632,6 +678,7 @@ void initVulkan() {
   pickPhysicalDevice();
   createLogicalDevice();
   createSwapChain();
+  createImageViews();
 }
 
 void mainLoop() {
@@ -641,6 +688,10 @@ void mainLoop() {
 }
 
 void cleanup() {
+  foreach(imageView, swapChainImageViews) {
+    vkDestroyImageView(device, *imageView, NULL);
+  }
+
   vkDestroySwapchainKHR(device, swapChain, NULL);
 
   vkDestroyDevice(device, NULL);
