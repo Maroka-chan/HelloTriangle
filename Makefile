@@ -1,8 +1,9 @@
-CFLAGS = -O2
-LDFLAGS = -lglfw -lvulkan -ldl -lpthread
+CC 			:= clang
+CFLAGS 	:= -O2
+LDFLAGS := -lglfw -lvulkan -ldl -lpthread
 
-VulkanTest: main.c
-	clang $(CFLAGS) $(DEBUG) -o VulkanTest main.c debug/print.c $(LDFLAGS)
+VulkanTest: main.c **/*.c
+	$(CC) $(CFLAGS) $(DEBUG) -o $@ $? $(LDFLAGS)
 
 .PHONY: test clean
 
@@ -12,7 +13,7 @@ test: VulkanTest
 clean:
 	rm -f VulkanTest
 
-debug: DEBUG = -g -DDEBUG
+debug: DEBUG := -g -DDEBUG
 debug: VulkanTest
 	./VulkanTest
 

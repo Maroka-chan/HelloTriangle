@@ -9,8 +9,11 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include <string.h>
+
 #include "debug/print.h"
 #include "option.h"
+#include "vulkan/vk_ValidationLayers.h"
+#include "vulkan/vk_DebugUtilsMessenger.h"
 
 #define arrayLength(arr) \
   *(&arr + 1) - arr
@@ -18,6 +21,12 @@
 #define foreach(item, list) \
   for(typeof(list[0]) *item = list; item < (&list)[1]; item++)
 
+// Enable Validation Layers only in Debug Mode
+#ifdef DEBUG
+  const bool enableValidationLayers = true;
+#else
+  const bool enableValidationLayers = false;
+#endif
 
 // Window Size
 const uint32_t WIDTH = 800;
@@ -29,19 +38,13 @@ GLFWwindow* window;
 const char *validationLayers[] = {
   "VK_LAYER_KHRONOS_validation"
 };
+const uint32_t validationLayerCount = sizeof(validationLayers) / sizeof(validationLayers[0]);
 
 // Device Extensions to enable
 const char *deviceExtensions[] = {
   VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
-
-// Enable Validation Layers only in Debug Mode
-#ifdef DEBUG
-  const bool enableValidationLayers = true;
-#else
-  const bool enableValidationLayers = false;
-#endif
 
 // Handle to the Vulkan library instance
 VkInstance instance;
@@ -87,76 +90,8 @@ VkImageView* swapChainImageViews;
 // Handle to the Debug callback
 VkDebugUtilsMessengerEXT debugMessenger;
 
-
-static VKAPI_ATTR VkBool32 VKAPI_CALL debugCallback (
-    VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
-    VkDebugUtilsMessageTypeFlagsEXT messageType,
-    const VkDebugUtilsMessengerCallbackDataEXT* pCallbackData,
-    void* pUserData) {
-  
-  if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT)
-    error("Validation Layer: %s\n", pCallbackData->pMessage);
-  else if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT)
-    warning("Validation Layer: %s\n", pCallbackData->pMessage);
-  else if (messageSeverity == VK_DEBUG_UTILS_MESSAGE_SEVERITY_INFO_BIT_EXT)
-    info("Validation Layer: %s\n", pCallbackData->pMessage);
-  return VK_FALSE;
-}
-
-
 // Handle to the window surface
 VkSurfaceKHR surface;
-
-
-// Loads the vkCreateDebugUtilsMessengerEXT extension function
-VkResult CreateDebugUtilsMessengerEXT(VkInstance instance,
-    const VkDebugUtilsMessengerCreateInfoEXT* pCreateInfo,
-    VkAllocationCallbacks* pAllocator,
-    VkDebugUtilsMessengerEXT* pDebugMessenger) {
-  VkResult (*functionPtr)(VkInstance,const VkDebugUtilsMessengerCreateInfoEXT*,const VkAllocationCallbacks*,VkDebugUtilsMessengerEXT*);
-  functionPtr = (PFN_vkCreateDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT");
-
-  if (functionPtr != NULL) {
-    return functionPtr(instance, pCreateInfo, pAllocator, pDebugMessenger);
-  } else {
-    return VK_ERROR_EXTENSION_NOT_PRESENT;
-  }
-}
-
-// Loads the vkDestroyDebugUtilsMessengerEXT extension cleanup function
-void DestroyDebugUtilsMessengerEXT(VkInstance instance,
-    VkDebugUtilsMessengerEXT debugMessenger,
-    const VkAllocationCallbacks* pAllocator) {
-  void (*functionPtr)(VkInstance,VkDebugUtilsMessengerEXT,const VkAllocationCallbacks*);
-  functionPtr = (PFN_vkDestroyDebugUtilsMessengerEXT) vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT");
-
-  if (functionPtr != NULL) {
-    functionPtr(instance, debugMessenger, pAllocator);
-  }
-}
-
-// Function for populating the vkDebugMessengerCreateInfoEXT struct.
-// vkCreateDebugUtilsMessengerEXT require a valid instance and
-// vkDestroyDebugUtilsMessengerEXT must be called before the instance is destroyed.
-// 
-// So we have this function so we can reuse it in createInstance in
-// order to create a seperate debug utils messenger specifically for these functions.
-// 
-void populateDebugMessengerCreateInfo(VkDebugUtilsMessengerCreateInfoEXT* createInfo) {
-  createInfo->sType = VK_STRUCTURE_TYPE_DEBUG_UTILS_MESSENGER_CREATE_INFO_EXT;
-  createInfo->messageSeverity =
-    VK_DEBUG_UTILS_MESSAGE_SEVERITY_VERBOSE_BIT_EXT |
-    VK_DEBUG_UTILS_MESSAGE_SEVERITY_WARNING_BIT_EXT |
-    VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT;
-  createInfo->messageType =
-    VK_DEBUG_UTILS_MESSAGE_TYPE_GENERAL_BIT_EXT |
-    VK_DEBUG_UTILS_MESSAGE_TYPE_VALIDATION_BIT_EXT |
-    VK_DEBUG_UTILS_MESSAGE_TYPE_PERFORMANCE_BIT_EXT;
-  createInfo->pfnUserCallback = debugCallback;
-}
-
-
-
 
 
 void initWindow() {
@@ -168,29 +103,6 @@ void initWindow() {
   glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
   window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", NULL, NULL);
-}
-
-bool checkValidationLayerSupport() {
-  uint32_t layerCount;
-  vkEnumerateInstanceLayerProperties(&layerCount, NULL);
-
-  VkLayerProperties availableLayers[layerCount];
-  vkEnumerateInstanceLayerProperties(&layerCount, availableLayers);
-
-  foreach (layerName, validationLayers) {
-    bool layerFound = false;
-
-    foreach (layerProperties, availableLayers) {
-      if (strcmp(*layerName, layerProperties->layerName) == 0) {
-        layerFound = true;
-        break;
-      }
-    }
-
-    if (!layerFound) return false;
-  }
-
-  return true;
 }
 
 typedef struct RequiredExtensions {
@@ -249,18 +161,18 @@ void createInstance() {
   createInfo.ppEnabledExtensionNames = requiredExtensions.extensions;
 
   // Add validation layers if enabled
-  VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = {};
   if (enableValidationLayers) {
     createInfo.enabledLayerCount = arrayLength(validationLayers);
     createInfo.ppEnabledLayerNames = validationLayers;
 
+    VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = {};
     // Add debug messenger to be used during vkCreateInstance and vkDestroyInstance
     // The debug messenger will automatically be cleaned up afterwards
     populateDebugMessengerCreateInfo(&debugCreateInfo);
     createInfo.pNext = (VkDebugUtilsMessengerCreateInfoEXT*) &debugCreateInfo;
+
   } else {
     createInfo.enabledLayerCount = 0;
-
     createInfo.pNext = NULL;
   }
 
@@ -287,20 +199,8 @@ void createInstance() {
   }
 
   // Check that the requested validation layers are available
-  if (enableValidationLayers && !checkValidationLayerSupport()) {
+  if (enableValidationLayers && !checkValidationLayerSupport(validationLayers, validationLayerCount)) {
     error("Validation layers requested, but not available!\n");
-    exit(EXIT_FAILURE);
-  }
-}
-
-void setupDebugMessenger() {
-  if (!enableValidationLayers) return;
-  
-  VkDebugUtilsMessengerCreateInfoEXT createInfo = {};
-  populateDebugMessengerCreateInfo(&createInfo);
-
-  if (CreateDebugUtilsMessengerEXT(instance, &createInfo, NULL, &debugMessenger) != VK_SUCCESS) {
-    error("Failed to set up debug messenger!\n");
     exit(EXIT_FAILURE);
   }
 }
@@ -312,7 +212,7 @@ typedef struct SwapChainSupportDetails {
 } SwapChainSupportDetails;
 
 SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) {
-  SwapChainSupportDetails details;
+  SwapChainSupportDetails details = {};
 
   vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
 
@@ -331,6 +231,11 @@ SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) {
   }
 
   return details;
+}
+
+void destroySwapChainSupportDetails(SwapChainSupportDetails* details) { // TODO Destroy somewhere. Probably save them in a global list and destroy on Cleanup()??
+  if (surfaceFormatCount != 0) free(details->formats);
+  if (presentModeCount != 0) free(details->presentModes);
 }
 
 // Color Depth
@@ -500,9 +405,10 @@ void pickPhysicalDevice() {
   VkPhysicalDevice devices[deviceCount];
   vkEnumeratePhysicalDevices(instance, &deviceCount, devices);
 
-  foreach(device, devices) {
-    if (isDeviceSuitable(device)) {
-      physicalDevice = *device;
+  for (size_t i = 0; i < deviceCount; i++) {
+    VkPhysicalDevice device = devices[i]; 
+    if (isDeviceSuitable(&device)) {
+      physicalDevice = device;
       break;
     }
   }
@@ -673,7 +579,9 @@ void createImageViews() {
 
 void initVulkan() {
   createInstance();
-  setupDebugMessenger();
+  if (enableValidationLayers) {
+    setupDebugMessenger(instance, &debugMessenger);
+  }
   createSurface();
   pickPhysicalDevice();
   createLogicalDevice();
@@ -697,7 +605,7 @@ void cleanup() {
   vkDestroyDevice(device, NULL);
 
   if (enableValidationLayers) {
-    DestroyDebugUtilsMessengerEXT(instance, debugMessenger, NULL);
+    destroyDebugMessenger(instance, debugMessenger, NULL);
   }
 
   vkDestroySurfaceKHR(instance, surface, NULL);
