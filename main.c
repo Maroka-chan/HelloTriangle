@@ -14,6 +14,9 @@
 #include "option.h"
 #include "vulkan/vk_ValidationLayers.h"
 #include "vulkan/vk_DebugUtilsMessenger.h"
+#include "vulkan/vk_QueueFamilies.h"
+#include "vulkan/vk_SwapChain.h"
+
 
 #define arrayLength(arr) \
   *(&arr + 1) - arr
@@ -63,25 +66,9 @@ VkQueue graphicsQueue;
 // Handle to the present queue
 VkQueue presentQueue;
 
-// Surface format count
-uint32_t surfaceFormatCount;
-// Present mode count
-uint32_t presentModeCount;
-// Swap chain image count
-uint32_t swapChainImageCount;
 
-// Handle to the swap chain
-VkSwapchainKHR swapChain;
+SwapChainDetails swapChainDetails;
 
-// Handle to the swap chain images
-// The images will be automatically cleaned up once
-// the swap chain has been destroyed
-VkImage* swapChainImages;
-
-// Handle to the swap chain image format
-VkFormat swapChainImageFormat;
-// Handle to the swap chain extent
-VkExtent2D swapChainExtent;
 
 // Handle to the swap chain image views
 VkImageView* swapChainImageViews;
@@ -205,151 +192,13 @@ void createInstance() {
   }
 }
 
-typedef struct SwapChainSupportDetails {
-  VkSurfaceCapabilitiesKHR capabilities;
-  VkSurfaceFormatKHR* formats;
-  VkPresentModeKHR* presentModes;
-} SwapChainSupportDetails;
-
-SwapChainSupportDetails querySwapChainSupport(VkPhysicalDevice device) {
-  SwapChainSupportDetails details = {};
-
-  vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device, surface, &details.capabilities);
-
-  vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &surfaceFormatCount, NULL);
-
-  if (surfaceFormatCount != 0) {
-    details.formats = malloc(surfaceFormatCount * sizeof(VkSurfaceFormatKHR));
-    vkGetPhysicalDeviceSurfaceFormatsKHR(device, surface, &surfaceFormatCount, details.formats);
-  }
-
-  vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, NULL);
-
-  if (presentModeCount != 0) {
-    details.presentModes = malloc(presentModeCount * sizeof(VkPresentModeKHR));
-    vkGetPhysicalDeviceSurfacePresentModesKHR(device, surface, &presentModeCount, details.presentModes);
-  }
-
-  return details;
-}
-
-void destroySwapChainSupportDetails(SwapChainSupportDetails* details) { // TODO Destroy somewhere. Probably save them in a global list and destroy on Cleanup()??
-  if (surfaceFormatCount != 0) free(details->formats);
-  if (presentModeCount != 0) free(details->presentModes);
-}
-
-// Color Depth
-// Chooses the color format and colorspace
-VkSurfaceFormatKHR chooseSwapSurfaceFormat(const VkSurfaceFormatKHR* availableFormats) {
-  foreach(availableFormat, availableFormats) {
-    if (availableFormat->format == VK_FORMAT_B8G8R8A8_SRGB &&
-        availableFormat->colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
-      return *availableFormat;
-    }
-  }
-
-  return availableFormats[0];
-}
-
-// Conditions for "swapping" images to the screen
-//
-// For example, VK_PRESENT_MODE_IMMEDIATE_KHR submits images to
-// the screen immediately which can cause screen tearing.
-//
-// VK_PRESENT_MODE_FIFO_KHR we use a first in first out(FIFO) queue
-// and if the queue is full the program has to wait.
-//
-// VK_PRESENT_MODE_FIFO_RELAXED_KHR is like FIFO_KHR, but transfers the
-// image immediately instead of waiting if the last vertical blank was empty.
-//
-// VK_PRESENT_MODE_MAILBOX_KHR is like FIFO_KHR but instead of waiting when the queue is full, it
-// overwrites the already queued images with newer ones. This renders frames as fast as possible while still
-// avoiding screen tearing and results in fewer latency issues than standard vertical sync. It is not as
-// power efficient since the program never stops to wait, so it is not the best choice where energy usage is
-// more important like on a mobile device.
-VkPresentModeKHR chooseSwapPresentMode(const VkPresentModeKHR* availablePresentModes) {
-  foreach(availablePresentMode, availablePresentModes) {
-    if (*availablePresentMode == VK_PRESENT_MODE_MAILBOX_KHR) {
-      return *availablePresentMode;
-    }
-  }
 
 
-  return VK_PRESENT_MODE_FIFO_KHR;
-}
-
-double clamp(double d, double min, double max) {
-  const double t = d < min ? min : d;
-  return t > max ? max : t;
-}
-
-VkExtent2D chooseSwapExtent(const VkSurfaceCapabilitiesKHR capabilities) {
-  if (capabilities.currentExtent.width != UINT32_MAX) {
-    return capabilities.currentExtent;
-  } else {
-    int width, height;
-    glfwGetFramebufferSize(window, &width, &height);
-
-    VkExtent2D actualExtent = {
-      (uint32_t) width,
-      (uint32_t) height
-    };
-
-    actualExtent.width = clamp(actualExtent.width,
-        capabilities.minImageExtent.width,
-        capabilities.maxImageExtent.width);
-    actualExtent.height = clamp(actualExtent.height,
-        capabilities.minImageExtent.height,
-        capabilities.maxImageExtent.height);
-
-    return actualExtent;
-  }
-}
 
 
-typedef struct QueueFamilyIndices {
-  Option(uint32_t) graphicsFamily;
-  Option(uint32_t) presentFamily;
-} QueueFamilyIndices;
 
-bool isQueueFamilyIndicesComplete(QueueFamilyIndices* queuefamilyindices) {
-  return queuefamilyindices->graphicsFamily.isSome &&
-    queuefamilyindices->presentFamily.isSome;
-}
 
-QueueFamilyIndices findQueueFamilies(VkPhysicalDevice device) {
-  QueueFamilyIndices indices = {};
 
-  uint32_t queueFamilyCount = 0;
-  vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, NULL);
-
-  VkQueueFamilyProperties queueFamilies[queueFamilyCount];
-  vkGetPhysicalDeviceQueueFamilyProperties(device, &queueFamilyCount, queueFamilies);
-
-  // Find queue families that support the features we want.
-  // The present and graphics family can be separate queues, but
-  // are often the same. Logic can be added to prefer a physical device
-  // that supports both in the same queue for improved performance.
-  int i = 0;
-  // TODO Implement Linked List data structure
-  foreach(queueFamily, queueFamilies) {
-    if (queueFamily->queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-      setOption(indices.graphicsFamily, i);
-    }
-    
-    VkBool32 presentSupport = false;
-    vkGetPhysicalDeviceSurfaceSupportKHR(device, i, surface, &presentSupport);
-    if (presentSupport) {
-      setOption(indices.presentFamily, i);
-    }
-
-    if (isQueueFamilyIndicesComplete(&indices)) break;
-
-    i++;
-  }
-
-  return indices;
-}
 
 bool checkDeviceExtensionSupport(VkPhysicalDevice* device) {
   uint32_t extensionCount;
@@ -375,16 +224,16 @@ bool checkDeviceExtensionSupport(VkPhysicalDevice* device) {
 }
 
 bool isDeviceSuitable(VkPhysicalDevice* device) {
-  QueueFamilyIndices indices = findQueueFamilies(*device);
+  QueueFamilyIndices indices = findQueueFamilies(*device, surface);
 
   bool extensionsSupported = checkDeviceExtensionSupport(device);
 
   bool swapChainAdequate = false;
   if (extensionsSupported) {
-    SwapChainSupportDetails swapChainSupport = querySwapChainSupport(*device);
+    SwapChainSupportDetails swapChainSupport = querySwapChainSupport(*device, surface);
     swapChainAdequate = //TODO
-      surfaceFormatCount != 0 &&
-      presentModeCount != 0;
+      swapChainSupport.surfaceFormatCount != 0 &&
+      swapChainSupport.presentModeCount != 0;
   }
 
   return 
@@ -420,7 +269,7 @@ void pickPhysicalDevice() {
 }
 
 void createLogicalDevice() {
-  QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
+  QueueFamilyIndices indices = findQueueFamilies(physicalDevice, surface);
 
   uint32_t queueCount = 0;
   // TODO Temporary solution to avoid duplicates since we do not have a Set data structure
@@ -486,69 +335,8 @@ void createSurface() {
   }
 }
 
-void createSwapChain() {
-  SwapChainSupportDetails swapChainSupport = querySwapChainSupport(physicalDevice);
-  
-  VkSurfaceFormatKHR surfaceFormat = chooseSwapSurfaceFormat(swapChainSupport.formats);
-  VkPresentModeKHR presentMode = chooseSwapPresentMode(swapChainSupport.presentModes);
-  VkExtent2D extent = chooseSwapExtent(swapChainSupport.capabilities);
 
-  // We should request at least one more than the minimum to avoid having to wait for
-  // the driver to complete internal operations before we can acquire another image to render to.
-  swapChainImageCount = swapChainSupport.capabilities.minImageCount + 1;
-
-  // Make sure we do not exceed the maximum image count.
-  // We first check that the maximum is larger than 0 since
-  // 0 is a special value that means that there is no maximum.
-  if (swapChainSupport.capabilities.maxImageCount > 0 &&
-      swapChainImageCount > swapChainSupport.capabilities.maxImageCount) {
-    swapChainImageCount = swapChainSupport.capabilities.maxImageCount;
-  }
-
-  VkSwapchainCreateInfoKHR createInfo = {};
-  createInfo.sType = VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR;
-  createInfo.surface = surface;
-  createInfo.minImageCount = swapChainImageCount;
-  createInfo.imageFormat = surfaceFormat.format;
-  createInfo.imageColorSpace = surfaceFormat.colorSpace;
-  createInfo.imageExtent = extent;
-  createInfo.imageArrayLayers = 1;  // The imageArrayLayers specifies the amount of layers each image consists of.
-                                    // This is always 1 unless you are developing a stereoscopic 3D application
-  createInfo.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT; // Change if you want to do post-processing etc.
-
-  QueueFamilyIndices indices = findQueueFamilies(physicalDevice);
-  uint32_t queueFamilyIndices[] = { indices.graphicsFamily.value, indices.presentFamily.value };
-
-  if (indices.graphicsFamily.value != indices.presentFamily.value) {
-    createInfo.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
-    createInfo.queueFamilyIndexCount = 2;
-    createInfo.pQueueFamilyIndices = queueFamilyIndices;
-  } else {
-    createInfo.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
-    createInfo.queueFamilyIndexCount = 0; // Optional
-    createInfo.pQueueFamilyIndices = NULL; // Optional
-  }
-
-  createInfo.preTransform = swapChainSupport.capabilities.currentTransform; // currentTransform tells that we do not want any transformation
-  createInfo.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR; // Ignore alpha channel, so that it does not blend with other windows in the window system
-  createInfo.presentMode = presentMode;
-  createInfo.clipped = VK_TRUE; // We do not care about the color of obscured pixels, for example because another window is in front of them
-  createInfo.oldSwapchain = VK_NULL_HANDLE; // Assume we'll only ever create one swap chain for now
-  
-  if (vkCreateSwapchainKHR(device, &createInfo, NULL, &swapChain) != VK_SUCCESS) {
-    error("Failed to create swap chain!\n");
-    exit(EXIT_FAILURE);
-  }
-
-  vkGetSwapchainImagesKHR(device, swapChain, &swapChainImageCount, NULL);
-  swapChainImages = malloc(swapChainImageCount * sizeof(VkImage));
-  vkGetSwapchainImagesKHR(device, swapChain, &swapChainImageCount, swapChainImages);
-
-  swapChainImageFormat = surfaceFormat.format;
-  swapChainExtent = extent;
-}
-
-void createImageViews() {
+void createImageViews(uint32_t swapChainImageCount, VkImage* swapChainImages, VkFormat swapChainImageFormat) {
   swapChainImageViews = malloc(swapChainImageCount * sizeof(VkImageView));
 
   for (size_t i = 0; i < swapChainImageCount; i++) {
@@ -585,8 +373,8 @@ void initVulkan() {
   createSurface();
   pickPhysicalDevice();
   createLogicalDevice();
-  createSwapChain();
-  createImageViews();
+  swapChainDetails = createSwapChain(window, device, physicalDevice, surface);
+  createImageViews(swapChainDetails.swapChainImageCount, swapChainDetails.swapChainImages, swapChainDetails.swapChainImageFormat);
 }
 
 void mainLoop() {
@@ -600,7 +388,7 @@ void cleanup() {
     vkDestroyImageView(device, *imageView, NULL);
   }
 
-  vkDestroySwapchainKHR(device, swapChain, NULL);
+  vkDestroySwapchainKHR(device, *swapChainDetails.swapChain, NULL);
 
   vkDestroyDevice(device, NULL);
 
