@@ -3,7 +3,8 @@
 
 #include "string.h"
 
-bool checkValidationLayerSupport(const char **validationLayers, int layerCount)
+bool check_validation_layer_support(const char **validation_layers,
+                int layer_count)
 {
         uint32_t availableLayerCount;
         vkEnumerateInstanceLayerProperties(&availableLayerCount, NULL);
@@ -12,10 +13,10 @@ bool checkValidationLayerSupport(const char **validationLayers, int layerCount)
         vkEnumerateInstanceLayerProperties(&availableLayerCount,
                         availableLayers);
 
-        for (size_t i = 0; i < layerCount; i++) {
+        for (size_t i = 0; i < layer_count; i++) {
                 bool layerFound = false;
                 for (size_t j = 0; j < availableLayerCount; j++) {
-                        if (strcmp(validationLayers[i],
+                        if (strcmp(validation_layers[i],
                                         availableLayers[j].layerName) == 0) {
                                 layerFound = true;
                                 break;

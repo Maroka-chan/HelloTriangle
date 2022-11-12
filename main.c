@@ -2,6 +2,7 @@
 #include <stdint.h>
 #include <vulkan/vk_platform.h>
 #include <vulkan/vulkan_core.h>
+
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
@@ -12,76 +13,76 @@
 
 #include "debug/print.h"
 #include "option.h"
-#include "vulkan/vk_ValidationLayers.h"
-#include "vulkan/vk_DebugUtilsMessenger.h"
-#include "vulkan/vk_QueueFamilies.h"
-#include "vulkan/vk_SwapChain.h"
+#include "vulkan/vk_validation_layer.h"
+#include "vulkan/vk_debug_messenger.h"
+#include "vulkan/vk_queue_family.h"
+#include "vulkan/vk_swap_chain.h"
+#include "vulkan/vk_image_view.h"
 
-#define arrayLength(arr) \
-        *(&arr + 1) - arr
+
+#define ARRAY_SIZE(arr) \
+        (sizeof(arr) / sizeof((arr)[0]))
 
 #define foreach(item, list) \
         for(typeof(list[0]) *item = list; item < (&list)[1]; item++)
 
 // Enable Validation Layers only in Debug Mode
 #ifdef DEBUG
-const bool enableValidationLayers = true;
+static const bool ENABLE_VALIDATION_LAYERS = true;
 #else
-const bool enableValidationLayers = false;
+static const bool ENABLE_VALIDATION_LAYERS = false;
 #endif
 
 // Window Size
-const uint32_t WIDTH = 800;
-const uint32_t HEIGHT = 600;
+static const uint32_t WIDTH = 800;
+static const uint32_t HEIGHT = 600;
 
-GLFWwindow *window;
+static GLFWwindow *p_window;
 
 // Validation Layers to request/enable
-const char *validationLayers[] = {
+static const char *VALIDATION_LAYERS[] = {
         "VK_LAYER_KHRONOS_validation"
 };
-const uint32_t validationLayerCount = sizeof(validationLayers) /
-        sizeof(validationLayers[0]);
 
 // Device Extensions to enable
-const char *deviceExtensions[] = {
+static const char *DEVICE_EXTENSIONS[] = {
         VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
 
 // Handle to the Vulkan library instance
-VkInstance instance;
+static VkInstance instance;
 
 // Handle to the physical device(gpu) to use
 // This object will be implicitly destroyed when the VkInstance is destroyed
-VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
+static VkPhysicalDevice physicalDevice = VK_NULL_HANDLE;
 
 // Handle to the logical device used for interfacing the physical device
-VkDevice device;
+static VkDevice device;
 
 // Handle to the graphics queue
 // Device queues are implicitly cleaned up when
 // the device is destroyed
-VkQueue graphicsQueue;
+static VkQueue graphicsQueue;
 // Handle to the present queue
-VkQueue presentQueue;
+static VkQueue presentQueue;
 
 
-struct SwapChainDetails swapChainDetails;
+static struct SwapChainDetails swapChainDetails;
 
 
 // Handle to the swap chain image views
-VkImageView *swapChainImageViews;
+static VkImageView *swapChainImageViews;
 
 
 // Handle to the Debug callback
-VkDebugUtilsMessengerEXT debugMessenger;
+static VkDebugUtilsMessengerEXT debugMessenger;
 
 // Handle to the window surface
-VkSurfaceKHR surface;
+static VkSurfaceKHR surface;
 
 
-void initWindow()
+void init_window()
 {
         glfwInit();
 
@@ -90,40 +91,40 @@ void initWindow()
         // Disable the ability to resize the window
         glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
-        window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", NULL, NULL);
+        p_window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", NULL, NULL);
 }
 
 struct RequiredExtensions {
         const char **extensions;
-        uint32_t extensionCount;
+        uint32_t extension_count;
 };
 
-const struct RequiredExtensions getRequiredExtensions()
+const struct RequiredExtensions get_required_extensions()
 {
         struct RequiredExtensions glfwExtensions = {};
         glfwExtensions.extensions =
                 glfwGetRequiredInstanceExtensions(
-                                &glfwExtensions.extensionCount);
+                                &glfwExtensions.extension_count);
 
         // Enable extra extensions when validation layers are enabled
-        if (enableValidationLayers) {
+        if (ENABLE_VALIDATION_LAYERS) {
                 const char *extraExtenstions[] = {
                         VK_EXT_DEBUG_UTILS_EXTENSION_NAME
                 };
-                size_t extraExtensionsSize = arrayLength(extraExtenstions);
+                size_t extraExtensionsSize = ARRAY_SIZE(extraExtenstions);
                 struct RequiredExtensions extensions = {};
-                extensions.extensionCount =
-                        glfwExtensions.extensionCount + extraExtensionsSize;
-                extensions.extensions = malloc(extensions.extensionCount);
+                extensions.extension_count =
+                        glfwExtensions.extension_count + extraExtensionsSize;
+                extensions.extensions = malloc(extensions.extension_count);
 
                 // Merge the arrays
                 size_t i,j;
-                for (i = 0; i < glfwExtensions.extensionCount; i++)
+                for (i = 0; i < glfwExtensions.extension_count; i++)
                         extensions.extensions[i] =
                                 glfwExtensions.extensions[i];
 
-                for (i = 0, j = glfwExtensions.extensionCount;
-                                j < extensions.extensionCount &&
+                for (i = 0, j = glfwExtensions.extension_count;
+                                j < extensions.extension_count &&
                                 i < extraExtensionsSize; i++, j++)
                         extensions.extensions[j] = extraExtenstions[i];
 
@@ -133,7 +134,7 @@ const struct RequiredExtensions getRequiredExtensions()
         return glfwExtensions;
 }
 
-void createInstance()
+void create_instance()
 {
         // We specify some information about our application so that
         // it can be used for optimizations. (Optional)
@@ -158,22 +159,23 @@ void createInstance()
         // window system from GLFW.
         // We also get additional extensions when
         // validation layers are enabled.
-        struct RequiredExtensions requiredExtensions = getRequiredExtensions();
+        struct RequiredExtensions requiredExtensions =
+                get_required_extensions();
 
-        createInfo.enabledExtensionCount = requiredExtensions.extensionCount;
+        createInfo.enabledExtensionCount = requiredExtensions.extension_count;
         createInfo.ppEnabledExtensionNames = requiredExtensions.extensions;
 
         // Add validation layers if enabled
-        if (enableValidationLayers) {
-                createInfo.enabledLayerCount = arrayLength(validationLayers);
-                createInfo.ppEnabledLayerNames = validationLayers;
+        if (ENABLE_VALIDATION_LAYERS) {
+                createInfo.enabledLayerCount = ARRAY_SIZE(VALIDATION_LAYERS);
+                createInfo.ppEnabledLayerNames = VALIDATION_LAYERS;
 
                 VkDebugUtilsMessengerCreateInfoEXT debugCreateInfo = {};
                 // Add debug messenger to be used during
                 // vkCreateInstance and vkDestroyInstance
                 // The debug messenger will automatically
                 // be cleaned up afterwards
-                populateDebugMessengerCreateInfo(&debugCreateInfo);
+                populate_debug_messenger_createinfo(&debugCreateInfo);
                 createInfo.pNext =
                         (VkDebugUtilsMessengerCreateInfoEXT*) &debugCreateInfo;
         } else {
@@ -189,52 +191,44 @@ void createInstance()
         }
 
         // Get the number of available extensions
-        uint32_t extensionCount = 0;
-        vkEnumerateInstanceExtensionProperties(NULL, &extensionCount, NULL);
+        uint32_t extension_count = 0;
+        vkEnumerateInstanceExtensionProperties(NULL, &extension_count, NULL);
 
         // Get the details of the extensions
-        VkExtensionProperties extensions[extensionCount];
+        VkExtensionProperties extensions[extension_count];
         vkEnumerateInstanceExtensionProperties(NULL,
-                        &extensionCount, extensions);
+                        &extension_count, extensions);
 
         // Print the available extensions
         printf("Available Extensions:\n");
 
-        for (size_t i = 0; i < extensionCount; i++) {
+        for (size_t i = 0; i < extension_count; i++) {
                 printf("\t %s\n", extensions[i].extensionName);
         }
 
         // Check that the requested validation layers are available
-        if (enableValidationLayers &&
-                        !checkValidationLayerSupport(validationLayers,
-                                validationLayerCount)) {
+        if (ENABLE_VALIDATION_LAYERS &&
+                        !check_validation_layer_support(VALIDATION_LAYERS,
+                                ARRAY_SIZE(VALIDATION_LAYERS))) {
                 error("Validation layers requested, but not available!\n");
                 exit(EXIT_FAILURE);
         }
 }
 
-
-
-
-
-
-
-
-
-bool checkDeviceExtensionSupport(VkPhysicalDevice *device)
+bool check_device_extension_support(VkPhysicalDevice *p_device)
 {
         uint32_t extensionCount;
-        vkEnumerateDeviceExtensionProperties(*device, NULL,
+        vkEnumerateDeviceExtensionProperties(*p_device, NULL,
                         &extensionCount, NULL);
 
         VkExtensionProperties availableExtensions[extensionCount];
-        vkEnumerateDeviceExtensionProperties(*device, NULL,
+        vkEnumerateDeviceExtensionProperties(*p_device, NULL,
                         &extensionCount, availableExtensions);
 
         // TODO Temporary solution since we do not have a Set data structure
-        size_t requiredExtensionCount = arrayLength(deviceExtensions);
+        size_t requiredExtensionCount = ARRAY_SIZE(DEVICE_EXTENSIONS);
         uint32_t requiredExtensionsFound = 0;
-        foreach(requiredExtension, deviceExtensions) {
+        foreach(requiredExtension, DEVICE_EXTENSIONS) {
                 if (requiredExtensionsFound == requiredExtensionCount) break;
                 foreach(extension, availableExtensions) {
                         if (strcmp(extension->extensionName,
@@ -248,29 +242,29 @@ bool checkDeviceExtensionSupport(VkPhysicalDevice *device)
         return requiredExtensionsFound == requiredExtensionCount;
 }
 
-bool isDeviceSuitable(VkPhysicalDevice *device)
+bool is_device_suitable(VkPhysicalDevice *p_device)
 {
         struct QueueFamilyIndices indices =
-                findQueueFamilies(*device, surface);
+                find_queue_families(*p_device, surface);
 
-        bool extensionsSupported = checkDeviceExtensionSupport(device);
+        bool extensionsSupported = check_device_extension_support(p_device);
 
         bool swapChainAdequate = false;
         if (extensionsSupported) {
                 struct SwapChainSupportDetails swapChainSupport =
-                        querySwapChainSupport(*device, surface);
+                        query_swap_chain_support(*p_device, surface);
                 swapChainAdequate = //TODO
-                        swapChainSupport.surfaceFormatCount != 0 &&
-                        swapChainSupport.presentModeCount != 0;
+                        swapChainSupport.surface_format_count != 0 &&
+                        swapChainSupport.present_mode_count != 0;
         }
 
         return 
-                isQueueFamilyIndicesComplete(&indices) &&
+                is_queue_family_indices_complete(&indices) &&
                 extensionsSupported &&
                 swapChainAdequate;
 }
 
-void pickPhysicalDevice()
+void pick_physical_device()
 {
         uint32_t deviceCount = 0;
         vkEnumeratePhysicalDevices(instance, &deviceCount, NULL);
@@ -285,7 +279,7 @@ void pickPhysicalDevice()
 
         for (size_t i = 0; i < deviceCount; i++) {
                 VkPhysicalDevice device = devices[i]; 
-                if (isDeviceSuitable(&device)) {
+                if (is_device_suitable(&device)) {
                         physicalDevice = device;
                         break;
                 }
@@ -297,15 +291,15 @@ void pickPhysicalDevice()
         }
 }
 
-void createLogicalDevice()
+void create_logical_device()
 {
         struct QueueFamilyIndices indices =
-                findQueueFamilies(physicalDevice, surface);
+                find_queue_families(physicalDevice, surface);
 
         uint32_t queueCount = 0;
         // TODO Temporary solution to avoid duplicates
         // since we do not have a Set data structure
-        if (indices.graphicsFamily.value == indices.presentFamily.value)
+        if (indices.graphics_family.value == indices.present_family.value)
                 queueCount = 1;
         else queueCount = 2;
         // TODO Implement List data structure
@@ -315,11 +309,11 @@ void createLogicalDevice()
         // only be added once if they are the same, but they will
         // be added multiple times since we are not using a Set.
         uint32_t uniqueQueueFamilies[queueCount];
-        uniqueQueueFamilies[0] = indices.graphicsFamily.value;
+        uniqueQueueFamilies[0] = indices.graphics_family.value;
         // TODO Temporary solution to avoid duplicates since
         // we do not have a Set data structure
         if (queueCount == 2)
-                uniqueQueueFamilies[1] = indices.presentFamily.value;
+                uniqueQueueFamilies[1] = indices.present_family.value;
 
         float queuePriority = 1.0f;
         for(int i = 0; i < queueCount; i++) {
@@ -341,15 +335,15 @@ void createLogicalDevice()
         createInfo.queueCreateInfoCount = queueCount;
 
         createInfo.pEnabledFeatures = &deviceFeatures;
-        createInfo.enabledExtensionCount = arrayLength(deviceExtensions);
-        createInfo.ppEnabledExtensionNames = deviceExtensions;
+        createInfo.enabledExtensionCount = ARRAY_SIZE(DEVICE_EXTENSIONS);
+        createInfo.ppEnabledExtensionNames = DEVICE_EXTENSIONS;
 
         // For compatibility with older versions of Vulkan
         // There is no longer any distinction between instance and 
         // device specific validation layers
-        if (enableValidationLayers) {
-                createInfo.enabledLayerCount = arrayLength(validationLayers);
-                createInfo.ppEnabledLayerNames = validationLayers;
+        if (ENABLE_VALIDATION_LAYERS) {
+                createInfo.enabledLayerCount = ARRAY_SIZE(VALIDATION_LAYERS);
+                createInfo.ppEnabledLayerNames = VALIDATION_LAYERS;
         } else {
                 createInfo.enabledLayerCount = 0;
         }
@@ -362,107 +356,83 @@ void createLogicalDevice()
 
         // We are only creating a single queue from
         // each of these families, so we'll simply use the queue at index 0
-        vkGetDeviceQueue(device, indices.graphicsFamily.value,
+        vkGetDeviceQueue(device, indices.graphics_family.value,
                         0, &graphicsQueue);
-        vkGetDeviceQueue(device, indices.presentFamily.value,
+        vkGetDeviceQueue(device, indices.present_family.value,
                         0, &presentQueue);
 }
 
-void createSurface()
+void create_surface()
 {
-        if (glfwCreateWindowSurface(instance, window, NULL, &surface)
+        if (glfwCreateWindowSurface(instance, p_window, NULL, &surface)
                         != VK_SUCCESS) {
                 error("Failed to create window surface!\n");
                 exit(EXIT_FAILURE);
         }
 }
 
-
-void createImageViews(uint32_t swapChainImageCount, VkImage *swapChainImages,
-                VkFormat swapChainImageFormat)
+static void init_vulkan()
 {
-        swapChainImageViews =
-                malloc(swapChainImageCount * sizeof(VkImageView));
-
-        for (size_t i = 0; i < swapChainImageCount; i++) {
-                VkImageViewCreateInfo createInfo = {};
-                createInfo.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-                createInfo.image = swapChainImages[i];
-                createInfo.viewType = VK_IMAGE_VIEW_TYPE_2D;
-                createInfo.format = swapChainImageFormat;
-
-                createInfo.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-                createInfo.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-                createInfo.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-                createInfo.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-
-                createInfo.subresourceRange.aspectMask =
-                        VK_IMAGE_ASPECT_COLOR_BIT;
-                createInfo.subresourceRange.baseMipLevel = 0;
-                createInfo.subresourceRange.levelCount = 1;
-                createInfo.subresourceRange.baseArrayLayer = 0;
-                createInfo.subresourceRange.layerCount = 1;
-
-                if (vkCreateImageView(device, &createInfo, NULL,
-                                        &swapChainImageViews[i])
-                                != VK_SUCCESS) {
-                        error("Failed to create image views!\n");
-                        exit(EXIT_FAILURE);
-                }
+        create_instance();
+        if (ENABLE_VALIDATION_LAYERS) {
+                setup_debug_messenger(instance, &debugMessenger);
+        }
+        create_surface();
+        pick_physical_device();
+        create_logical_device();
+        
+        if(create_swap_chain(p_window, device, physicalDevice,
+                                surface, &swapChainDetails)
+                        != VK_SUCCESS) {
+                error("Failed to create swap chain!\n");
+                exit(EXIT_FAILURE);
         }
 
-}
-
-void initVulkan()
-{
-        createInstance();
-        if (enableValidationLayers) {
-                setupDebugMessenger(instance, &debugMessenger);
+        if (create_image_views(&device,
+                                swapChainDetails.images,
+                                swapChainDetails.image_count,
+                                &swapChainDetails.image_format,
+                                swapChainImageViews)
+                        != VK_SUCCESS) {
+                error("Failed to create image views!\n");
+                exit(EXIT_FAILURE);
         }
-        createSurface();
-        pickPhysicalDevice();
-        createLogicalDevice();
-        swapChainDetails =
-                createSwapChain(window, device, physicalDevice, surface);
-        createImageViews(swapChainDetails.swapChainImageCount,
-                        swapChainDetails.swapChainImages,
-                        swapChainDetails.swapChainImageFormat);
 }
 
-void mainLoop()
+static void main_loop()
 {
-        while(!glfwWindowShouldClose(window)) {
+        while(!glfwWindowShouldClose(p_window)) {
                 glfwPollEvents();
         }
 }
 
-void cleanup()
+static void cleanup()
 {
         foreach(imageView, swapChainImageViews) {
                 vkDestroyImageView(device, *imageView, NULL);
         }
 
-        vkDestroySwapchainKHR(device, *swapChainDetails.swapChain, NULL);
+        vkDestroySwapchainKHR(device, *swapChainDetails.p_swap_chain, NULL);
 
         vkDestroyDevice(device, NULL);
 
-        if (enableValidationLayers) {
-                destroyDebugMessenger(instance, debugMessenger, NULL);
+        if (ENABLE_VALIDATION_LAYERS) {
+                destroy_debug_messenger(instance, debugMessenger, NULL);
         }
 
         vkDestroySurfaceKHR(instance, surface, NULL);
         vkDestroyInstance(instance, NULL);
 
-        glfwDestroyWindow(window);
+        glfwDestroyWindow(p_window);
 
         glfwTerminate();
 }
 
-void run()
+static void run()
 {
-        initWindow();
-        initVulkan();
-        mainLoop();
+        init_window();
+        init_vulkan();
+        main_loop();
         cleanup();
 }
 

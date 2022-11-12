@@ -2,27 +2,27 @@
 #include <stdint.h>
 
 #include "../option.h"
-#include "vk_QueueFamilies.h"
+#include "vk_queue_family.h"
 
 
-bool isQueueFamilyIndicesComplete(
-                struct QueueFamilyIndices *queuefamilyindices)
+bool is_queue_family_indices_complete(
+                struct QueueFamilyIndices *queue_family_indices)
 {
-        return queuefamilyindices->graphicsFamily.isSome &&
-                queuefamilyindices->presentFamily.isSome;
+        return queue_family_indices->graphics_family.isSome &&
+                queue_family_indices->present_family.isSome;
 }
 
-struct QueueFamilyIndices findQueueFamilies(VkPhysicalDevice physicalDevice,
+struct QueueFamilyIndices find_queue_families(VkPhysicalDevice physical_device,
                 VkSurfaceKHR surface)
 {
         struct QueueFamilyIndices indices = {};
 
         uint32_t queueFamilyCount = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice,
+        vkGetPhysicalDeviceQueueFamilyProperties(physical_device,
                         &queueFamilyCount, NULL);
 
         VkQueueFamilyProperties queueFamilies[queueFamilyCount];
-        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice,
+        vkGetPhysicalDeviceQueueFamilyProperties(physical_device,
                         &queueFamilyCount, queueFamilies);
 
         // Find queue families that support the features we want.
@@ -32,17 +32,17 @@ struct QueueFamilyIndices findQueueFamilies(VkPhysicalDevice physicalDevice,
         // TODO Implement Linked List data structure
         for (size_t i = 0; i < queueFamilyCount; i++) {
                 if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-                        setOption(indices.graphicsFamily, i);
+                        set_option(indices.graphics_family, i);
                 }
 
                 VkBool32 presentSupport = false;
-                vkGetPhysicalDeviceSurfaceSupportKHR(physicalDevice, i,
+                vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, i,
                                 surface, &presentSupport);
                 if (presentSupport) {
-                        setOption(indices.presentFamily, i);
+                        set_option(indices.present_family, i);
                 }
 
-                if (isQueueFamilyIndicesComplete(&indices)) break;
+                if (is_queue_family_indices_complete(&indices)) break;
         }
 
         return indices;
