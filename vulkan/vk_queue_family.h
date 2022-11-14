@@ -9,6 +9,8 @@ struct QueueFamilyIndices {
         Option(uint32_t) present_family;
 };
 
+void create_queue(VkDevice *p_device, uint32_t queue_family, VkQueue *p_queue);
+
 struct QueueFamilyIndices find_queue_families(VkPhysicalDevice physical_device,
                 VkSurfaceKHR surface);
 

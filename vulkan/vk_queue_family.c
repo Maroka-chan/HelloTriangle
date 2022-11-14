@@ -5,11 +5,16 @@
 #include "vk_queue_family.h"
 
 
+void create_queue(VkDevice *p_device, uint32_t queue_family, VkQueue *p_queue)
+{
+        vkGetDeviceQueue(*p_device, queue_family, 0, p_queue);
+}
+
 bool is_queue_family_indices_complete(
                 struct QueueFamilyIndices *queue_family_indices)
 {
-        return queue_family_indices->graphics_family.isSome &&
-                queue_family_indices->present_family.isSome;
+        return queue_family_indices->graphics_family.is_some &&
+                queue_family_indices->present_family.is_some;
 }
 
 struct QueueFamilyIndices find_queue_families(VkPhysicalDevice physical_device,
@@ -32,14 +37,14 @@ struct QueueFamilyIndices find_queue_families(VkPhysicalDevice physical_device,
         // TODO Implement Linked List data structure
         for (size_t i = 0; i < queueFamilyCount; i++) {
                 if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
-                        set_option(indices.graphics_family, i);
+                        set_value(indices.graphics_family, i);
                 }
 
                 VkBool32 presentSupport = false;
                 vkGetPhysicalDeviceSurfaceSupportKHR(physical_device, i,
                                 surface, &presentSupport);
                 if (presentSupport) {
-                        set_option(indices.present_family, i);
+                        set_value(indices.present_family, i);
                 }
 
                 if (is_queue_family_indices_complete(&indices)) break;

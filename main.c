@@ -18,19 +18,18 @@
 #include "vulkan/vk_queue_family.h"
 #include "vulkan/vk_swap_chain.h"
 #include "vulkan/vk_image_view.h"
+#include "vulkan/vk_logical_device.h"
+#include "utils/array.h"
 
-
-#define ARRAY_SIZE(arr) \
-        (sizeof(arr) / sizeof((arr)[0]))
 
 #define foreach(item, list) \
         for(typeof(list[0]) *item = list; item < (&list)[1]; item++)
 
 // Enable Validation Layers only in Debug Mode
 #ifdef DEBUG
-static const bool ENABLE_VALIDATION_LAYERS = true;
+const bool ENABLE_VALIDATION_LAYERS = true;
 #else
-static const bool ENABLE_VALIDATION_LAYERS = false;
+const bool ENABLE_VALIDATION_LAYERS = false;
 #endif
 
 // Window Size
@@ -291,77 +290,6 @@ void pick_physical_device()
         }
 }
 
-void create_logical_device()
-{
-        struct QueueFamilyIndices indices =
-                find_queue_families(physicalDevice, surface);
-
-        uint32_t queueCount = 0;
-        // TODO Temporary solution to avoid duplicates
-        // since we do not have a Set data structure
-        if (indices.graphics_family.value == indices.present_family.value)
-                queueCount = 1;
-        else queueCount = 2;
-        // TODO Implement List data structure
-        VkDeviceQueueCreateInfo queueCreateInfos[queueCount];
-        // TODO Implement Set data structure
-        // The index to the queue families are supposed to
-        // only be added once if they are the same, but they will
-        // be added multiple times since we are not using a Set.
-        uint32_t uniqueQueueFamilies[queueCount];
-        uniqueQueueFamilies[0] = indices.graphics_family.value;
-        // TODO Temporary solution to avoid duplicates since
-        // we do not have a Set data structure
-        if (queueCount == 2)
-                uniqueQueueFamilies[1] = indices.present_family.value;
-
-        float queuePriority = 1.0f;
-        for(int i = 0; i < queueCount; i++) {
-                uint32_t queueFamily = uniqueQueueFamilies[i];
-                VkDeviceQueueCreateInfo queueCreateInfo = {};
-                queueCreateInfo.sType =
-                        VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-                queueCreateInfo.queueFamilyIndex = queueFamily;
-                queueCreateInfo.queueCount = 1;
-                queueCreateInfo.pQueuePriorities = &queuePriority;
-                queueCreateInfos[i] = queueCreateInfo;
-        }
-
-        VkPhysicalDeviceFeatures deviceFeatures = {};
-
-        VkDeviceCreateInfo createInfo = {};
-        createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-        createInfo.pQueueCreateInfos = queueCreateInfos;
-        createInfo.queueCreateInfoCount = queueCount;
-
-        createInfo.pEnabledFeatures = &deviceFeatures;
-        createInfo.enabledExtensionCount = ARRAY_SIZE(DEVICE_EXTENSIONS);
-        createInfo.ppEnabledExtensionNames = DEVICE_EXTENSIONS;
-
-        // For compatibility with older versions of Vulkan
-        // There is no longer any distinction between instance and 
-        // device specific validation layers
-        if (ENABLE_VALIDATION_LAYERS) {
-                createInfo.enabledLayerCount = ARRAY_SIZE(VALIDATION_LAYERS);
-                createInfo.ppEnabledLayerNames = VALIDATION_LAYERS;
-        } else {
-                createInfo.enabledLayerCount = 0;
-        }
-
-        if (vkCreateDevice(physicalDevice, &createInfo, NULL, &device)
-                        != VK_SUCCESS) {
-                error("Failed to create logical device!\n");
-                exit(EXIT_FAILURE);
-        }
-
-        // We are only creating a single queue from
-        // each of these families, so we'll simply use the queue at index 0
-        vkGetDeviceQueue(device, indices.graphics_family.value,
-                        0, &graphicsQueue);
-        vkGetDeviceQueue(device, indices.present_family.value,
-                        0, &presentQueue);
-}
-
 void create_surface()
 {
         if (glfwCreateWindowSurface(instance, p_window, NULL, &surface)
@@ -379,7 +307,24 @@ static void init_vulkan()
         }
         create_surface();
         pick_physical_device();
-        create_logical_device();
+        if (create_logical_device(&physicalDevice, &surface,
+                                DEVICE_EXTENSIONS,
+                                ARRAY_SIZE(DEVICE_EXTENSIONS),
+                                VALIDATION_LAYERS,
+                                ARRAY_SIZE(VALIDATION_LAYERS),
+                                &device)
+                        != VK_SUCCESS) {
+                error("Failed to create logical device!\n");
+                exit(EXIT_FAILURE);
+        }
+
+        struct QueueFamilyIndices queueFamilyIndices =
+                find_queue_families(physicalDevice, surface);
+
+        create_queue(&device,queueFamilyIndices.graphics_family.value,
+                        &graphicsQueue);
+        create_queue(&device,queueFamilyIndices.present_family.value,
+                        &presentQueue);
         
         if(create_swap_chain(p_window, device, physicalDevice,
                                 surface, &swapChainDetails)

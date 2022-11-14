@@ -3,7 +3,14 @@
 
 #include <stdbool.h>
 
-#define Option(type) struct { bool isSome; type value; }
-#define set_option(opt, val) opt.value = val; opt.isSome = true
+#define Option(type) \
+        struct { bool is_some; type value; }
+
+#define get_value(option) \
+        option.value
+
+#define set_value(option, val) \
+        option.value = val; \
+        option.is_some = true;
 
 #endif
