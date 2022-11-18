@@ -13,17 +13,21 @@
 
 #include "debug/print.h"
 #include "option.h"
+
 #include "vulkan/vk_validation_layer.h"
 #include "vulkan/vk_debug_messenger.h"
 #include "vulkan/vk_queue_family.h"
 #include "vulkan/vk_swap_chain.h"
 #include "vulkan/vk_image_view.h"
 #include "vulkan/vk_logical_device.h"
-#include "utils/array.h"
+#include "vulkan/vk_instance_extension.h"
+#include "vulkan/vk_physical_device.h"
 
+#include "utils/array.h"
 
 #define foreach(item, list) \
         for(typeof(list[0]) *item = list; item < (&list)[1]; item++)
+
 
 // Enable Validation Layers only in Debug Mode
 #ifdef DEBUG
@@ -73,7 +77,6 @@ static struct SwapChainDetails swapChainDetails;
 // Handle to the swap chain image views
 static VkImageView *swapChainImageViews;
 
-
 // Handle to the Debug callback
 static VkDebugUtilsMessengerEXT debugMessenger;
 
@@ -91,46 +94,6 @@ void init_window()
         glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
         p_window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", NULL, NULL);
-}
-
-struct RequiredExtensions {
-        const char **extensions;
-        uint32_t extension_count;
-};
-
-const struct RequiredExtensions get_required_extensions()
-{
-        struct RequiredExtensions glfwExtensions = {};
-        glfwExtensions.extensions =
-                glfwGetRequiredInstanceExtensions(
-                                &glfwExtensions.extension_count);
-
-        // Enable extra extensions when validation layers are enabled
-        if (ENABLE_VALIDATION_LAYERS) {
-                const char *extraExtenstions[] = {
-                        VK_EXT_DEBUG_UTILS_EXTENSION_NAME
-                };
-                size_t extraExtensionsSize = ARRAY_SIZE(extraExtenstions);
-                struct RequiredExtensions extensions = {};
-                extensions.extension_count =
-                        glfwExtensions.extension_count + extraExtensionsSize;
-                extensions.extensions = malloc(extensions.extension_count);
-
-                // Merge the arrays
-                size_t i,j;
-                for (i = 0; i < glfwExtensions.extension_count; i++)
-                        extensions.extensions[i] =
-                                glfwExtensions.extensions[i];
-
-                for (i = 0, j = glfwExtensions.extension_count;
-                                j < extensions.extension_count &&
-                                i < extraExtensionsSize; i++, j++)
-                        extensions.extensions[j] = extraExtenstions[i];
-
-                return extensions;
-        }
-
-        return glfwExtensions;
 }
 
 void create_instance()
@@ -214,82 +177,6 @@ void create_instance()
         }
 }
 
-bool check_device_extension_support(VkPhysicalDevice *p_device)
-{
-        uint32_t extensionCount;
-        vkEnumerateDeviceExtensionProperties(*p_device, NULL,
-                        &extensionCount, NULL);
-
-        VkExtensionProperties availableExtensions[extensionCount];
-        vkEnumerateDeviceExtensionProperties(*p_device, NULL,
-                        &extensionCount, availableExtensions);
-
-        // TODO Temporary solution since we do not have a Set data structure
-        size_t requiredExtensionCount = ARRAY_SIZE(DEVICE_EXTENSIONS);
-        uint32_t requiredExtensionsFound = 0;
-        foreach(requiredExtension, DEVICE_EXTENSIONS) {
-                if (requiredExtensionsFound == requiredExtensionCount) break;
-                foreach(extension, availableExtensions) {
-                        if (strcmp(extension->extensionName,
-                                                *requiredExtension)) {
-                                requiredExtensionsFound++;
-                                break;
-                        }
-                }
-        }
-
-        return requiredExtensionsFound == requiredExtensionCount;
-}
-
-bool is_device_suitable(VkPhysicalDevice *p_device)
-{
-        struct QueueFamilyIndices indices =
-                find_queue_families(*p_device, surface);
-
-        bool extensionsSupported = check_device_extension_support(p_device);
-
-        bool swapChainAdequate = false;
-        if (extensionsSupported) {
-                struct SwapChainSupportDetails swapChainSupport =
-                        query_swap_chain_support(*p_device, surface);
-                swapChainAdequate = //TODO
-                        swapChainSupport.surface_format_count != 0 &&
-                        swapChainSupport.present_mode_count != 0;
-        }
-
-        return 
-                is_queue_family_indices_complete(&indices) &&
-                extensionsSupported &&
-                swapChainAdequate;
-}
-
-void pick_physical_device()
-{
-        uint32_t deviceCount = 0;
-        vkEnumeratePhysicalDevices(instance, &deviceCount, NULL);
-
-        if (deviceCount == 0) {
-                error("Failed to find GPUs with Vulkan support!\n");
-                exit(EXIT_FAILURE);
-        }
-
-        VkPhysicalDevice devices[deviceCount];
-        vkEnumeratePhysicalDevices(instance, &deviceCount, devices);
-
-        for (size_t i = 0; i < deviceCount; i++) {
-                VkPhysicalDevice device = devices[i]; 
-                if (is_device_suitable(&device)) {
-                        physicalDevice = device;
-                        break;
-                }
-        }
-
-        if (physicalDevice == VK_NULL_HANDLE) {
-                error("Failed to find a suitable GPU!\n");
-                exit(EXIT_FAILURE);
-        }
-}
-
 void create_surface()
 {
         if (glfwCreateWindowSurface(instance, p_window, NULL, &surface)
@@ -306,7 +193,13 @@ static void init_vulkan()
                 setup_debug_messenger(instance, &debugMessenger);
         }
         create_surface();
-        pick_physical_device();
+        pick_physical_device(
+                        &instance,
+                        &surface,
+                        DEVICE_EXTENSIONS,
+                        ARRAY_SIZE(DEVICE_EXTENSIONS),
+                        &physicalDevice
+                        );
         if (create_logical_device(&physicalDevice, &surface,
                                 DEVICE_EXTENSIONS,
                                 ARRAY_SIZE(DEVICE_EXTENSIONS),
