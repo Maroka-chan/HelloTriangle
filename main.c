@@ -1,3 +1,4 @@
+#include "vulkan/vk_render_pass.h"
 #include <stddef.h>
 #include <stdint.h>
 #include <vulkan/vk_platform.h>
@@ -22,6 +23,7 @@
 #include "vulkan/vk_logical_device.h"
 #include "vulkan/vk_instance_extension.h"
 #include "vulkan/vk_physical_device.h"
+#include "vulkan/vk_graphics_pipeline.h"
 
 #include "utils/array.h"
 
@@ -82,6 +84,9 @@ static VkDebugUtilsMessengerEXT debugMessenger;
 
 // Handle to the window surface
 static VkSurfaceKHR surface;
+
+static VkRenderPass renderPass;
+static struct GraphicsPipelineDetails graphicsPipelineDetails;
 
 
 void init_window()
@@ -235,6 +240,12 @@ static void init_vulkan()
                 error("Failed to create image views!\n");
                 exit(EXIT_FAILURE);
         }
+
+        renderPass =
+                create_render_pass(&device, &swapChainDetails.image_format);
+
+        graphicsPipelineDetails = create_graphics_pipeline(
+                        &device, &swapChainDetails.extent, &renderPass);
 }
 
 static void main_loop()
@@ -246,6 +257,14 @@ static void main_loop()
 
 static void cleanup()
 {
+        vkDestroyPipeline(device,
+                        *graphicsPipelineDetails.p_graphics_pipeline, NULL);
+
+        vkDestroyPipelineLayout(device,
+                        *graphicsPipelineDetails.p_pipeline_layout, NULL);
+
+        vkDestroyRenderPass(device, renderPass, NULL);
+
         foreach(imageView, swapChainImageViews) {
                 vkDestroyImageView(device, *imageView, NULL);
         }
