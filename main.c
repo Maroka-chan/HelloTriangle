@@ -1,3 +1,4 @@
+#include "vulkan/vk_frame_buffer.h"
 #include "vulkan/vk_render_pass.h"
 #include <stddef.h>
 #include <stdint.h>
@@ -87,6 +88,10 @@ static VkSurfaceKHR surface;
 
 static VkRenderPass renderPass;
 static struct GraphicsPipelineDetails graphicsPipelineDetails;
+
+
+static VkFramebuffer *swapChainFramebuffers;
+
 
 
 void init_window()
@@ -197,7 +202,9 @@ static void init_vulkan()
         if (ENABLE_VALIDATION_LAYERS) {
                 setup_debug_messenger(instance, &debugMessenger);
         }
+
         create_surface();
+
         pick_physical_device(
                         &instance,
                         &surface,
@@ -205,6 +212,7 @@ static void init_vulkan()
                         ARRAY_SIZE(DEVICE_EXTENSIONS),
                         &physicalDevice
                         );
+
         if (create_logical_device(&physicalDevice, &surface,
                                 DEVICE_EXTENSIONS,
                                 ARRAY_SIZE(DEVICE_EXTENSIONS),
@@ -235,7 +243,7 @@ static void init_vulkan()
                                 swapChainDetails.images,
                                 swapChainDetails.image_count,
                                 &swapChainDetails.image_format,
-                                swapChainImageViews)
+                                &swapChainImageViews)
                         != VK_SUCCESS) {
                 error("Failed to create image views!\n");
                 exit(EXIT_FAILURE);
@@ -246,6 +254,15 @@ static void init_vulkan()
 
         graphicsPipelineDetails = create_graphics_pipeline(
                         &device, &swapChainDetails.extent, &renderPass);
+
+        if (create_frame_buffers(&device,
+                                &swapChainDetails,
+                                swapChainImageViews,
+                                &renderPass,
+                                &swapChainFramebuffers) != VK_SUCCESS) {
+                error("Failed to create framebuffer!");
+                exit(EXIT_FAILURE);
+        }
 }
 
 static void main_loop()
@@ -257,6 +274,9 @@ static void main_loop()
 
 static void cleanup()
 {
+        destroy_frame_buffers(&device, swapChainFramebuffers,
+                        swapChainDetails.image_count);
+
         vkDestroyPipeline(device,
                         *graphicsPipelineDetails.p_graphics_pipeline, NULL);
 
@@ -265,9 +285,8 @@ static void cleanup()
 
         vkDestroyRenderPass(device, renderPass, NULL);
 
-        foreach(imageView, swapChainImageViews) {
-                vkDestroyImageView(device, *imageView, NULL);
-        }
+        destroy_image_views(&device, swapChainImageViews,
+                        swapChainDetails.image_count);
 
         vkDestroySwapchainKHR(device, *swapChainDetails.p_swap_chain, NULL);
 

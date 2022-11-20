@@ -6,10 +6,11 @@ VkResult create_image_views(VkDevice *p_device,
                 VkImage *a_images,
                 uint32_t image_count,
                 VkFormat *p_image_format,
-                VkImageView *a_image_views)
+                VkImageView **a_image_views)
 {
-        a_image_views =
+        *a_image_views =
                 malloc(image_count * sizeof(VkImageView));
+        VkImageView *a = *a_image_views;
 
         for (size_t i = 0; i < image_count; i++) {
                 VkImageViewCreateInfo createInfo = {};
@@ -30,11 +31,20 @@ VkResult create_image_views(VkDevice *p_device,
                 createInfo.subresourceRange.baseArrayLayer = 0;
                 createInfo.subresourceRange.layerCount = 1;
 
-                VkResult result = vkCreateImageView(*p_device, &createInfo, NULL,
-                                &a_image_views[i]);
-                if (result != VK_SUCCESS) {
+                VkResult result = vkCreateImageView(*p_device, &createInfo,
+                                NULL, &a[i]);
+                if (result != VK_SUCCESS)
                         return result;
-                }
         }
         return VK_SUCCESS;
+}
+
+void destroy_image_views(VkDevice *p_device,
+                VkImageView *a_image_views,
+                uint32_t image_view_count)
+{
+        for (size_t i = 0; i < image_view_count; i++) {
+                vkDestroyImageView(*p_device, a_image_views[i], NULL);
+        }
+        free(a_image_views);
 }
