@@ -1,6 +1,6 @@
-CC 			:= clang
+CC	:= clang
 CFLAGS 	:= -O2
-LDFLAGS := -lglfw -lvulkan -ldl -lpthread
+LDFLAGS := -lglfw -lvulkan -ldl -lpthread -lX11 -lXxf86vm -lXrandr -lXi
 
 VulkanTest: main.c **/*.c
 	$(CC) $(CFLAGS) $(DEBUG) -o $@ $? $(LDFLAGS)
