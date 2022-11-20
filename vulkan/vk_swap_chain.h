@@ -14,7 +14,7 @@ struct SwapChainSupportDetails {
 };
 
 struct SwapChainDetails {
-        VkSwapchainKHR *p_swap_chain;  // Handle to the swap chain
+        VkSwapchainKHR swap_chain;  // Handle to the swap chain
         uint32_t image_count;
         // Handle to the swap chain images
         // The images will be automatically cleaned up once

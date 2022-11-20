@@ -4,8 +4,8 @@
 #include <vulkan/vulkan_core.h>
 
 struct GraphicsPipelineDetails {
-        VkPipeline *p_graphics_pipeline;
-        VkPipelineLayout *p_pipeline_layout;
+        VkPipeline graphics_pipeline;
+        VkPipelineLayout pipeline_layout;
 };
 
 struct GraphicsPipelineDetails create_graphics_pipeline(

@@ -233,7 +233,7 @@ VkResult create_swap_chain(
 
         VkFormat image_format = surfaceFormat.format;
 
-        p_swap_chain_details->p_swap_chain = &p_swap_chain;
+        p_swap_chain_details->swap_chain = p_swap_chain;
         p_swap_chain_details->extent = swapExtent;
         p_swap_chain_details->image_format = image_format;
         p_swap_chain_details->images = images;

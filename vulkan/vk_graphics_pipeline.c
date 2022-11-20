@@ -200,8 +200,8 @@ struct GraphicsPipelineDetails create_graphics_pipeline(
 
 
         struct GraphicsPipelineDetails pipelineDetails = {};
-        pipelineDetails.p_graphics_pipeline = &graphicsPipeline;
-        pipelineDetails.p_pipeline_layout = &pipelineLayout;
+        pipelineDetails.graphics_pipeline = graphicsPipeline;
+        pipelineDetails.pipeline_layout = pipelineLayout;
 
         return pipelineDetails;
 }

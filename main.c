@@ -278,17 +278,17 @@ static void cleanup()
                         swapChainDetails.image_count);
 
         vkDestroyPipeline(device,
-                        *graphicsPipelineDetails.p_graphics_pipeline, NULL);
+                        graphicsPipelineDetails.graphics_pipeline, NULL);
 
         vkDestroyPipelineLayout(device,
-                        *graphicsPipelineDetails.p_pipeline_layout, NULL);
+                        graphicsPipelineDetails.pipeline_layout, NULL);
 
         vkDestroyRenderPass(device, renderPass, NULL);
 
         destroy_image_views(&device, swapChainImageViews,
                         swapChainDetails.image_count);
 
-        vkDestroySwapchainKHR(device, *swapChainDetails.p_swap_chain, NULL);
+        vkDestroySwapchainKHR(device, swapChainDetails.swap_chain, NULL);
 
         vkDestroyDevice(device, NULL);
 
