@@ -4,25 +4,26 @@
 
 #include "../debug/print.h"
 
-VkCommandBuffer create_command_buffer(
+VkCommandBuffer *create_command_buffer(
                 VkDevice *p_device,
-                VkCommandPool *p_command_pool)
+                VkCommandPool *p_command_pool,
+                uint32_t max_frames_in_flight)
 {
-        VkCommandBuffer commandBuffer;
+        VkCommandBuffer *commandBuffers = malloc(sizeof(VkCommandBuffer) * max_frames_in_flight);
 
         VkCommandBufferAllocateInfo allocInfo = {};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         allocInfo.commandPool = *p_command_pool;
         allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-        allocInfo.commandBufferCount = 1;
+        allocInfo.commandBufferCount = max_frames_in_flight;
 
-        if (vkAllocateCommandBuffers(*p_device, &allocInfo, &commandBuffer)
+        if (vkAllocateCommandBuffers(*p_device, &allocInfo, commandBuffers)
                         != VK_SUCCESS) {
                 error("Failed to allocate command buffers!");
                 exit(EXIT_FAILURE);
         }
 
-        return commandBuffer;
+        return commandBuffers;
 }
 
 void record_command_buffer(

@@ -3,9 +3,10 @@
 
 #include <vulkan/vulkan_core.h>
 
-VkCommandBuffer create_command_buffer(
+VkCommandBuffer *create_command_buffer(
                 VkDevice *p_device,
-                VkCommandPool *p_command_pool);
+                VkCommandPool *p_command_pool,
+                uint32_t max_frames_in_flight);
 
 void record_command_buffer(
                 VkRenderPass *p_render_pass,
