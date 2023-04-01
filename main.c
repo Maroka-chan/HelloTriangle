@@ -378,17 +378,6 @@ static void main_loop()
 
 static void cleanup()
 {
-        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
-                vkDestroySemaphore(device, imageAvailableSemaphores[i], NULL);
-                vkDestroySemaphore(device, renderFinishedSemaphores[i], NULL);
-                vkDestroyFence(device, inFlightFences[i], NULL);
-        }
-
-        vkDestroyCommandPool(device, commandPool, NULL);
-
-        destroy_frame_buffers(&device, swapChainFramebuffers,
-                        swapChainDetails.image_count);
-
         cleanup_swap_chain(device, swapChainDetails.swap_chain,
                         swapChainFramebuffers, swapChainImageViews,
                         swapChainDetails.image_count,
@@ -408,10 +397,7 @@ static void cleanup()
                 vkDestroyFence(device, inFlightFences[i], NULL);
         }
 
-        destroy_image_views(&device, swapChainImageViews,
-                        swapChainDetails.image_count);
-
-        vkDestroySwapchainKHR(device, swapChainDetails.swap_chain, NULL);
+        vkDestroyCommandPool(device, commandPool, NULL);
 
         vkDestroyDevice(device, NULL);
 
