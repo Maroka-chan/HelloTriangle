@@ -186,8 +186,7 @@ void recreate_swap_chain(
                 VkSurfaceKHR surface,
                 struct SwapChainDetails *p_swap_chain_details,
                 VkRenderPass *p_render_pass,
-                VkFramebuffer **a_frame_buffers
-                )
+                VkFramebuffer **a_frame_buffers)
 {
         vkDeviceWaitIdle(device);
 

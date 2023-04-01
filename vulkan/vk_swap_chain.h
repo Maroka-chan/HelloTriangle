@@ -26,6 +26,19 @@ struct SwapChainDetails {
         VkExtent2D extent;
 };
 
+void recreate_swap_chain(
+                GLFWwindow *p_window,
+                VkDevice device,
+                VkImage *a_images,
+                uint32_t image_count,
+                VkFormat *p_image_format,
+                VkImageView **a_image_views,
+                VkPhysicalDevice physical_device,
+                VkSurfaceKHR surface,
+                struct SwapChainDetails *p_swap_chain_details,
+                VkRenderPass *p_render_pass,
+                VkFramebuffer **a_frame_buffers);
+
 VkResult create_swap_chain(
                 GLFWwindow *p_window,
                 VkDevice device,

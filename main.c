@@ -108,6 +108,16 @@ static VkFence *inFlightFences;
 
 static uint32_t currentFrame = 0;
 
+static bool *frameBufferResized = false;
+
+
+
+
+static void framebuffer_resize_callback(GLFWwindow *window, int width, int height)
+{
+        bool *frame_buffer_resized = (bool*)(glfwGetWindowUserPointer(window));
+        *frame_buffer_resized = true;
+}
 
 
 void init_window()
@@ -116,11 +126,12 @@ void init_window()
 
         // Tell glfw to not use OpenGL since we use Vulkan
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-        // Disable the ability to resize the window
-        glfwWindowHint(GLFW_RESIZABLE, GLFW_FALSE);
 
         p_window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", NULL, NULL);
+        glfwSetWindowUserPointer(p_window, frameBufferResized);
+        glfwSetFramebufferSizeCallback(p_window, framebuffer_resize_callback);
 }
+
 
 void create_instance()
 {
@@ -315,11 +326,26 @@ static void init_vulkan()
 void drawFrame()
 {
         vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
-        vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
         uint32_t imageIndex;
-        vkAcquireNextImageKHR(device, swapChainDetails.swap_chain, UINT64_MAX,
+        VkResult result = vkAcquireNextImageKHR(device, swapChainDetails.swap_chain, UINT64_MAX,
                         imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
+
+        if (result == VK_ERROR_OUT_OF_DATE_KHR) {
+                recreate_swap_chain(p_window, device, swapChainDetails.images,
+                                swapChainDetails.image_count, 
+                                &swapChainDetails.image_format, 
+                                &swapChainImageViews, physicalDevice, surface, 
+                                &swapChainDetails, &renderPass, 
+                                &swapChainFramebuffers);
+                return;
+        } else if (result != VK_SUCCESS && result != VK_SUBOPTIMAL_KHR) {
+                error("Failed to acquire swap chain image!");
+                exit(EXIT_FAILURE);
+        }
+
+        // Only reset the fence if we are submitting work
+        vkResetFences(device, 1, &inFlightFences[currentFrame]);
 
         vkResetCommandBuffer(commandBuffers[currentFrame], 0);
         record_command_buffer(&renderPass, swapChainFramebuffers,
@@ -361,7 +387,21 @@ void drawFrame()
         presentInfo.pImageIndices = &imageIndex;
         presentInfo.pResults = NULL;
 
-        vkQueuePresentKHR(presentQueue, &presentInfo);
+        result = vkQueuePresentKHR(presentQueue, &presentInfo);
+
+        if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR
+                        || *frameBufferResized) {
+                *frameBufferResized = false;
+                recreate_swap_chain(p_window, device, swapChainDetails.images,
+                                swapChainDetails.image_count, 
+                                &swapChainDetails.image_format, 
+                                &swapChainImageViews, physicalDevice, surface, 
+                                &swapChainDetails, &renderPass, 
+                                &swapChainFramebuffers);
+        } else if (result != VK_SUCCESS) {
+                error("Failed to present swap chain image!");
+                exit(EXIT_FAILURE);
+        }
 
         currentFrame = (currentFrame + 1) % MAX_FRAMES_IN_FLIGHT;
 }
