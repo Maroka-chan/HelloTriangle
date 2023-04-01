@@ -27,6 +27,7 @@
 #include "vulkan/vk_instance_extension.h"
 #include "vulkan/vk_physical_device.h"
 #include "vulkan/vk_graphics_pipeline.h"
+#include "vulkan/vk_swap_chain.h"
 
 #include "utils/array.h"
 
@@ -280,7 +281,7 @@ static void init_vulkan()
                 exit(EXIT_FAILURE);
         }
 
-        if (create_image_views(&device,
+        if (create_image_views(device,
                                 swapChainDetails.images,
                                 swapChainDetails.image_count,
                                 &swapChainDetails.image_format,
@@ -296,7 +297,7 @@ static void init_vulkan()
         graphicsPipelineDetails = create_graphics_pipeline(
                         &device, &swapChainDetails.extent, &renderPass);
 
-        if (create_frame_buffers(&device,
+        if (create_frame_buffers(device,
                                 &swapChainDetails,
                                 swapChainImageViews,
                                 &renderPass,
@@ -388,6 +389,11 @@ static void cleanup()
         destroy_frame_buffers(&device, swapChainFramebuffers,
                         swapChainDetails.image_count);
 
+        cleanup_swap_chain(device, swapChainDetails.swap_chain,
+                        swapChainFramebuffers, swapChainImageViews,
+                        swapChainDetails.image_count,
+                        swapChainDetails.image_count);
+
         vkDestroyPipeline(device,
                         graphicsPipelineDetails.graphics_pipeline, NULL);
 
@@ -395,6 +401,12 @@ static void cleanup()
                         graphicsPipelineDetails.pipeline_layout, NULL);
 
         vkDestroyRenderPass(device, renderPass, NULL);
+
+        for (size_t i = 0; i < MAX_FRAMES_IN_FLIGHT; i++) {
+                vkDestroySemaphore(device, renderFinishedSemaphores[i], NULL);
+                vkDestroySemaphore(device, imageAvailableSemaphores[i], NULL);
+                vkDestroyFence(device, inFlightFences[i], NULL);
+        }
 
         destroy_image_views(&device, swapChainImageViews,
                         swapChainDetails.image_count);

@@ -2,7 +2,8 @@
 #include <stdlib.h>
 
 
-VkResult create_image_views(VkDevice *p_device,
+VkResult create_image_views(
+                VkDevice p_device,
                 VkImage *a_images,
                 uint32_t image_count,
                 VkFormat *p_image_format,
@@ -31,7 +32,7 @@ VkResult create_image_views(VkDevice *p_device,
                 createInfo.subresourceRange.baseArrayLayer = 0;
                 createInfo.subresourceRange.layerCount = 1;
 
-                VkResult result = vkCreateImageView(*p_device, &createInfo,
+                VkResult result = vkCreateImageView(p_device, &createInfo,
                                 NULL, &a[i]);
                 if (result != VK_SUCCESS)
                         return result;

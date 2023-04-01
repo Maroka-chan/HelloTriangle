@@ -36,6 +36,15 @@ VkResult create_swap_chain(
 struct SwapChainSupportDetails query_swap_chain_support(
                 VkPhysicalDevice device, VkSurfaceKHR surface);
 
+void cleanup_swap_chain(
+                VkDevice device,
+                VkSwapchainKHR swap_chain,
+                VkFramebuffer *swap_chain_framebuffers,
+                VkImageView *swap_chain_image_views,
+                uint32_t swap_chain_framebuffer_count,
+                uint32_t swap_chain_image_views_count
+                );
+
 void destroySwapChainSupportDetails(
                 struct SwapChainSupportDetails *p_support_details);
 

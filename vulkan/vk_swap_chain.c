@@ -4,8 +4,10 @@
 
 #include "../option.h"
 #include "../debug/print.h"
+#include "vk_frame_buffer.h"
 #include "vk_queue_family.h"
 #include "vk_swap_chain.h"
+#include "vk_image_view.h"
 
 
 struct SwapChainSupportDetails query_swap_chain_support(
@@ -49,8 +51,8 @@ struct SwapChainSupportDetails query_swap_chain_support(
 // Color Depth
 // Chooses the color format and colorspace
 static VkSurfaceFormatKHR choose_surfaceformat(
-                const VkSurfaceFormatKHR *available_formats,
-                uint32_t format_count)
+    const VkSurfaceFormatKHR *available_formats,
+    uint32_t format_count)
 {
         for (size_t i = 0; i < format_count; i++) {
                 if (available_formats[i].format == VK_FORMAT_B8G8R8A8_SRGB && 
@@ -94,7 +96,6 @@ static VkPresentModeKHR choose_present_mode(
 
         return VK_PRESENT_MODE_FIFO_KHR;
 }
-
 
 static double clamp(double d, double min, double max)
 {
@@ -173,6 +174,36 @@ static VkSwapchainCreateInfoKHR create_swap_chain_info(
         return createInfo;
 }
 
+
+void recreate_swap_chain(
+                GLFWwindow *p_window,
+                VkDevice device,
+                VkImage *a_images,
+                uint32_t image_count,
+                VkFormat *p_image_format,
+                VkImageView **a_image_views,
+                VkPhysicalDevice physical_device,
+                VkSurfaceKHR surface,
+                struct SwapChainDetails *p_swap_chain_details,
+                VkRenderPass *p_render_pass,
+                VkFramebuffer **a_frame_buffers
+                )
+{
+        vkDeviceWaitIdle(device);
+
+        cleanup_swap_chain(device, p_swap_chain_details->swap_chain,
+                        *a_frame_buffers, *a_image_views, image_count,
+                        image_count);
+
+        create_swap_chain(p_window, device, physical_device,
+                        surface, p_swap_chain_details);
+        create_image_views(device, a_images, image_count, p_image_format,
+                        a_image_views);
+        create_frame_buffers(device, p_swap_chain_details, *a_image_views,
+                        p_render_pass, a_frame_buffers);
+}
+
+
 VkResult create_swap_chain(
                 GLFWwindow *p_window,
                 VkDevice device,
@@ -220,7 +251,7 @@ VkResult create_swap_chain(
         VkResult result = vkCreateSwapchainKHR(device, &createInfo,
                         NULL, &p_swap_chain);
         if (result != VK_SUCCESS) {
-                return result;              
+                return result;
         }
 
         vkGetSwapchainImagesKHR(device, p_swap_chain,
@@ -240,6 +271,24 @@ VkResult create_swap_chain(
         p_swap_chain_details->image_count = image_count;
 
         return VK_SUCCESS;
+}
+
+void cleanup_swap_chain(
+                VkDevice device,
+                VkSwapchainKHR swap_chain,
+                VkFramebuffer *swap_chain_framebuffers,
+                VkImageView *swap_chain_image_views,
+                uint32_t swap_chain_framebuffer_count,
+                uint32_t swap_chain_image_views_count)
+{
+        for (size_t i = 0; i < swap_chain_framebuffer_count; i++) {
+                vkDestroyFramebuffer(device, swap_chain_framebuffers[i], NULL);
+        }
+        for (size_t i = 0; i < swap_chain_image_views_count; i++) {
+                vkDestroyImageView(device, swap_chain_image_views[i], NULL);
+        }
+
+        vkDestroySwapchainKHR(device, swap_chain, NULL);
 }
 
 // TODO Call somewhere. Destroy on cleanup()?

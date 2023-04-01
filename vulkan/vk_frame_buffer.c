@@ -5,7 +5,8 @@
 
 #include "../debug/print.h"
 
-VkResult create_frame_buffers(VkDevice *p_device,
+VkResult create_frame_buffers(
+                VkDevice p_device,
                 struct SwapChainDetails *p_swap_chain_details,
                 VkImageView *a_image_views,
                 VkRenderPass *p_render_pass,
@@ -30,7 +31,7 @@ VkResult create_frame_buffers(VkDevice *p_device,
                 framebufferInfo.height = p_swap_chain_details->extent.height;
                 framebufferInfo.layers = 1;
 
-                VkResult result = vkCreateFramebuffer(*p_device,
+                VkResult result = vkCreateFramebuffer(p_device,
                                 &framebufferInfo, NULL,
                                 &a[i]);
                 if (result != VK_SUCCESS)
