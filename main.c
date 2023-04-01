@@ -115,7 +115,6 @@ static bool frameBufferResized = false;
 
 static void framebuffer_resize_callback(GLFWwindow *window, int width, int height)
 {
-        //bool *frame_buffer_resized = (bool*)(glfwGetWindowUserPointer(window));
         frameBufferResized = true;
 }
 
@@ -128,7 +127,6 @@ void init_window()
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
         p_window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", NULL, NULL);
-        //glfwSetWindowUserPointer(p_window, &frameBufferResized);
         glfwSetFramebufferSizeCallback(p_window, framebuffer_resize_callback);
 }
 
