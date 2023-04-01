@@ -178,9 +178,6 @@ static VkSwapchainCreateInfoKHR create_swap_chain_info(
 void recreate_swap_chain(
                 GLFWwindow *p_window,
                 VkDevice device,
-                VkImage *a_images,
-                uint32_t image_count,
-                VkFormat *p_image_format,
                 VkImageView **a_image_views,
                 VkPhysicalDevice physical_device,
                 VkSurfaceKHR surface,
@@ -191,12 +188,15 @@ void recreate_swap_chain(
         vkDeviceWaitIdle(device);
 
         cleanup_swap_chain(device, p_swap_chain_details->swap_chain,
-                        *a_frame_buffers, *a_image_views, image_count,
-                        image_count);
+                        *a_frame_buffers, *a_image_views,
+                        p_swap_chain_details->image_count,
+                        p_swap_chain_details->image_count);
 
         create_swap_chain(p_window, device, physical_device,
                         surface, p_swap_chain_details);
-        create_image_views(device, a_images, image_count, p_image_format,
+        create_image_views(device, p_swap_chain_details->images,
+                        p_swap_chain_details->image_count,
+                        &p_swap_chain_details->image_format,
                         a_image_views);
         create_frame_buffers(device, p_swap_chain_details, *a_image_views,
                         p_render_pass, a_frame_buffers);

@@ -108,15 +108,15 @@ static VkFence *inFlightFences;
 
 static uint32_t currentFrame = 0;
 
-static bool *frameBufferResized = false;
+static bool frameBufferResized = false;
 
 
 
 
 static void framebuffer_resize_callback(GLFWwindow *window, int width, int height)
 {
-        bool *frame_buffer_resized = (bool*)(glfwGetWindowUserPointer(window));
-        *frame_buffer_resized = true;
+        //bool *frame_buffer_resized = (bool*)(glfwGetWindowUserPointer(window));
+        frameBufferResized = true;
 }
 
 
@@ -128,7 +128,7 @@ void init_window()
         glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
 
         p_window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", NULL, NULL);
-        glfwSetWindowUserPointer(p_window, frameBufferResized);
+        //glfwSetWindowUserPointer(p_window, &frameBufferResized);
         glfwSetFramebufferSizeCallback(p_window, framebuffer_resize_callback);
 }
 
@@ -332,9 +332,7 @@ void drawFrame()
                         imageAvailableSemaphores[currentFrame], VK_NULL_HANDLE, &imageIndex);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR) {
-                recreate_swap_chain(p_window, device, swapChainDetails.images,
-                                swapChainDetails.image_count, 
-                                &swapChainDetails.image_format, 
+                recreate_swap_chain(p_window, device,
                                 &swapChainImageViews, physicalDevice, surface, 
                                 &swapChainDetails, &renderPass, 
                                 &swapChainFramebuffers);
@@ -390,11 +388,9 @@ void drawFrame()
         result = vkQueuePresentKHR(presentQueue, &presentInfo);
 
         if (result == VK_ERROR_OUT_OF_DATE_KHR || result == VK_SUBOPTIMAL_KHR
-                        || *frameBufferResized) {
-                *frameBufferResized = false;
-                recreate_swap_chain(p_window, device, swapChainDetails.images,
-                                swapChainDetails.image_count, 
-                                &swapChainDetails.image_format, 
+                        || frameBufferResized) {
+                frameBufferResized = false;
+                recreate_swap_chain(p_window, device,
                                 &swapChainImageViews, physicalDevice, surface, 
                                 &swapChainDetails, &renderPass, 
                                 &swapChainFramebuffers);

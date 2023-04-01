@@ -29,9 +29,6 @@ struct SwapChainDetails {
 void recreate_swap_chain(
                 GLFWwindow *p_window,
                 VkDevice device,
-                VkImage *a_images,
-                uint32_t image_count,
-                VkFormat *p_image_format,
                 VkImageView **a_image_views,
                 VkPhysicalDevice physical_device,
                 VkSurfaceKHR surface,
