@@ -185,6 +185,12 @@ void recreate_swap_chain(
                 VkRenderPass *p_render_pass,
                 VkFramebuffer **a_frame_buffers)
 {
+        int width = 0, height = 0;
+        glfwGetFramebufferSize(p_window, &width, &height);
+        while (width == 0 || height == 0) {
+        glfwGetFramebufferSize(p_window, &width, &height);
+        glfwWaitEvents();
+        }
         vkDeviceWaitIdle(device);
 
         cleanup_swap_chain(device, p_swap_chain_details->swap_chain,
