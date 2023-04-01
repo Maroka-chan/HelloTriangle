@@ -17,3 +17,6 @@ debug: DEBUG := -g -DDEBUG
 debug: VulkanTest
 	./VulkanTest
 
+symbols: DEBUG := -g
+symbols: clean VulkanTest
+
