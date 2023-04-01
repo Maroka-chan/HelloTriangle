@@ -28,6 +28,7 @@
 #include "vulkan/vk_physical_device.h"
 #include "vulkan/vk_graphics_pipeline.h"
 #include "vulkan/vk_swap_chain.h"
+#include "vulkan/vk_vertex_data.h"
 
 #include "utils/array.h"
 
@@ -95,7 +96,7 @@ static VkSurfaceKHR surface;
 static VkRenderPass renderPass;
 static struct GraphicsPipelineDetails graphicsPipelineDetails;
 
-
+static VkBuffer vertexBuffer;
 static VkFramebuffer *swapChainFramebuffers;
 
 static VkCommandPool commandPool;
@@ -110,7 +111,11 @@ static uint32_t currentFrame = 0;
 
 static bool frameBufferResized = false;
 
-
+static const Vertex vertices[] = {
+    {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
+    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+};
 
 
 static void framebuffer_resize_callback(GLFWwindow *window, int width, int height)
@@ -321,7 +326,20 @@ static void init_vulkan()
         create_sync_objects();
 }
 
-void drawFrame()
+void create_vertex_buffer()
+{
+    VkBufferCreateInfo bufferInfo = {};
+    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    bufferInfo.size = sizeof(vertices);
+    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateBuffer(device, &bufferInfo, NULL, &vertexBuffer) != VK_SUCCESS) {
+        printf("Failed to create vertex buffer!");
+    }
+}
+
+void draw_frame()
 {
         vkWaitForFences(device, 1, &inFlightFences[currentFrame], VK_TRUE, UINT64_MAX);
 
@@ -404,7 +422,7 @@ static void main_loop()
 {
         while(!glfwWindowShouldClose(p_window)) {
                 glfwPollEvents();
-                drawFrame();
+                draw_frame();
         }
 
         vkDeviceWaitIdle(device);
@@ -416,6 +434,7 @@ static void cleanup()
                         swapChainFramebuffers, swapChainImageViews,
                         swapChainDetails.image_count,
                         swapChainDetails.image_count);
+        vkDestroyBuffer(device, vertexBuffer, NULL);
 
         vkDestroyPipeline(device,
                         graphicsPipelineDetails.graphics_pipeline, NULL);

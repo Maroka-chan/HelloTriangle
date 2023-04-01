@@ -1,4 +1,5 @@
 #include "../utils/file.h"
+#include "../utils/array.h"
 #include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -6,6 +7,7 @@
 
 #include "../debug/print.h"
 #include "vk_graphics_pipeline.h"
+#include "vk_vertex_data.h"
 
 VkShaderModule create_shader_module(
                 VkDevice *p_device,
@@ -64,10 +66,14 @@ struct GraphicsPipelineDetails create_graphics_pipeline(
         VkPipelineVertexInputStateCreateInfo vertexInputInfo = {};
         vertexInputInfo.sType =
               VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-        vertexInputInfo.vertexBindingDescriptionCount = 0;
-        vertexInputInfo.pVertexBindingDescriptions = NULL; // Optional
-        vertexInputInfo.vertexAttributeDescriptionCount = 0;
-        vertexInputInfo.pVertexAttributeDescriptions = NULL; // Optional
+
+        VkVertexInputBindingDescription binding_description = get_binding_description();
+        vertexInputInfo.vertexBindingDescriptionCount = 1;
+        vertexInputInfo.pVertexBindingDescriptions = &binding_description;
+
+        VkVertexInputAttributeDescription *attr_description = get_attribute_description();
+        vertexInputInfo.vertexAttributeDescriptionCount = ARRAY_PTR_SIZE(attr_description, VkVertexInputAttributeDescription);
+        vertexInputInfo.pVertexAttributeDescriptions = attr_description;
 
         VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
         inputAssembly.sType =
