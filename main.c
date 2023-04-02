@@ -120,7 +120,6 @@ static const Vertex vertices[] = {
 
 
 
-
 // Prototypes
 static void create_vertex_buffer();
 
@@ -330,9 +329,8 @@ static void init_vulkan()
         }
 
         commandPool = create_command_pool(&device, &physicalDevice, &surface);
-        commandBuffers = create_command_buffer(&device, &commandPool, MAX_FRAMES_IN_FLIGHT);
-
         create_vertex_buffer();
+        commandBuffers = create_command_buffer(&device, &commandPool, MAX_FRAMES_IN_FLIGHT);
 
         create_sync_objects();
 }
@@ -422,7 +420,8 @@ void draw_frame()
         record_command_buffer(&renderPass, swapChainFramebuffers,
                         &swapChainDetails.extent,
                         &graphicsPipelineDetails.graphics_pipeline,
-                        commandBuffers[currentFrame], imageIndex);
+                        commandBuffers[currentFrame], imageIndex,
+                        vertices, ARRAY_SIZE(vertices), vertexBuffer);
 
         VkSubmitInfo submitInfo = {};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
