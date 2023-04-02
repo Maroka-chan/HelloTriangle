@@ -97,6 +97,7 @@ static VkRenderPass renderPass;
 static struct GraphicsPipelineDetails graphicsPipelineDetails;
 
 static VkBuffer vertexBuffer;
+static VkDeviceMemory vertexBufferMemory;
 static VkFramebuffer *swapChainFramebuffers;
 
 static VkCommandPool commandPool;
@@ -116,6 +117,14 @@ static const Vertex vertices[] = {
     {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
     {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
 };
+
+
+
+
+// Prototypes
+static void create_vertex_buffer();
+
+
 
 
 static void framebuffer_resize_callback(GLFWwindow *window, int width, int height)
@@ -323,20 +332,68 @@ static void init_vulkan()
         commandPool = create_command_pool(&device, &physicalDevice, &surface);
         commandBuffers = create_command_buffer(&device, &commandPool, MAX_FRAMES_IN_FLIGHT);
 
+        create_vertex_buffer();
+
         create_sync_objects();
 }
 
-void create_vertex_buffer()
+static uint32_t find_memory_type(
+                uint32_t type_filter,
+                VkMemoryPropertyFlags properties)
 {
-    VkBufferCreateInfo bufferInfo = {};
-    bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-    bufferInfo.size = sizeof(vertices);
-    bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
-    bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+        VkPhysicalDeviceMemoryProperties memProperties;
+        vkGetPhysicalDeviceMemoryProperties(physicalDevice, &memProperties);
 
-    if (vkCreateBuffer(device, &bufferInfo, NULL, &vertexBuffer) != VK_SUCCESS) {
-        printf("Failed to create vertex buffer!");
-    }
+        for (size_t i = 0; i < memProperties.memoryTypeCount; i++) {
+                if (type_filter & (1 << i) &&
+                                (memProperties.memoryTypes[i].propertyFlags &
+                                 properties) == properties) {
+                        return i;
+                }
+        }
+
+        error("Failed to find suitable memory type!");
+        exit(EXIT_FAILURE);
+}
+
+static void create_vertex_buffer()
+{
+        VkBufferCreateInfo bufferInfo = {};
+        bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+        bufferInfo.size = sizeof(vertices);
+        bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+        bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+        if (vkCreateBuffer(device, &bufferInfo, NULL, &vertexBuffer) 
+                        != VK_SUCCESS) {
+                error("Failed to create vertex buffer!");
+                exit(EXIT_FAILURE);
+        }
+
+        VkMemoryRequirements memRequirements;
+        vkGetBufferMemoryRequirements(device, vertexBuffer, &memRequirements);
+
+        VkMemoryAllocateInfo allocInfo = {};
+        allocInfo.sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+        allocInfo.allocationSize = memRequirements.size;
+        allocInfo.memoryTypeIndex =
+                find_memory_type(memRequirements.memoryTypeBits,
+                                VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                                VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+
+        if (vkAllocateMemory(device, &allocInfo, NULL, &vertexBufferMemory)
+                        != VK_SUCCESS) {
+                error("Failed to allocate vertex buffer memory!");
+                exit(EXIT_FAILURE);
+        }
+
+        vkBindBufferMemory(device, vertexBuffer, vertexBufferMemory, 0);
+
+        void *data;
+        vkMapMemory(device, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
+        memcpy(data, vertices, (size_t) bufferInfo.size);
+        vkUnmapMemory(device, vertexBufferMemory);
 }
 
 void draw_frame()
@@ -434,7 +491,9 @@ static void cleanup()
                         swapChainFramebuffers, swapChainImageViews,
                         swapChainDetails.image_count,
                         swapChainDetails.image_count);
+
         vkDestroyBuffer(device, vertexBuffer, NULL);
+        vkFreeMemory(device, vertexBufferMemory, NULL);
 
         vkDestroyPipeline(device,
                         graphicsPipelineDetails.graphics_pipeline, NULL);

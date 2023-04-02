@@ -15,7 +15,8 @@ VkVertexInputBindingDescription get_binding_description()
 
 VkVertexInputAttributeDescription *get_attribute_description() 
 {
-    VkVertexInputAttributeDescription *attribute_descriptions = malloc(sizeof(VkVertexInputAttributeDescription) * 2);
+    VkVertexInputAttributeDescription *attribute_descriptions 
+            = malloc(sizeof(VkVertexInputAttributeDescription) * 2);
 
     // Position attribute
     attribute_descriptions[0].binding = 0;
