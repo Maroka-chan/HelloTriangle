@@ -13,22 +13,23 @@ VkVertexInputBindingDescription get_binding_description()
     return binding_description;
 }
 
-VkVertexInputAttributeDescription *get_attribute_description() 
+struct VertexAttributeDescriptionArray get_attribute_description() 
 {
-    VkVertexInputAttributeDescription *attribute_descriptions 
-            = malloc(sizeof(VkVertexInputAttributeDescription) * 2);
+    struct VertexAttributeDescriptionArray attribute_descriptions = {
+        .size = 2,
+        .data = malloc(sizeof(VkVertexInputAttributeDescription) * 2)};
 
     // Position attribute
-    attribute_descriptions[0].binding = 0;
-    attribute_descriptions[0].location = 0;
-    attribute_descriptions[0].format = VK_FORMAT_R32G32_SFLOAT;
-    attribute_descriptions[0].offset = offsetof(Vertex, pos);
+    attribute_descriptions.data[0].binding = 0;
+    attribute_descriptions.data[0].location = 0;
+    attribute_descriptions.data[0].format = VK_FORMAT_R32G32_SFLOAT;
+    attribute_descriptions.data[0].offset = offsetof(Vertex, pos);
 
     // Color attribute
-    attribute_descriptions[1].binding = 0;
-    attribute_descriptions[1].location = 1;
-    attribute_descriptions[1].format = VK_FORMAT_R32G32B32_SFLOAT;
-    attribute_descriptions[1].offset = offsetof(Vertex, color);
+    attribute_descriptions.data[1].binding = 0;
+    attribute_descriptions.data[1].location = 1;
+    attribute_descriptions.data[1].format = VK_FORMAT_R32G32B32_SFLOAT;
+    attribute_descriptions.data[1].offset = offsetof(Vertex, color);
 
     return attribute_descriptions;
 }

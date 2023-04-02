@@ -114,16 +114,14 @@ static bool frameBufferResized = false;
 
 static const Vertex vertices[] = {
     {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-    {{0.5f, 0.5f}, {0.0f, 1.0f, 0.0f}},
-    {{-0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}}
+    {{0.5f, 0.5f}, {1.0f, 1.0f, 0.0f}},
+    {{-0.5f, 0.5f}, {1.0f, 0.0f, 1.0f}}
 };
 
 
 
 // Prototypes
 static void create_vertex_buffer();
-
-
 
 
 static void framebuffer_resize_callback(GLFWwindow *window, int width, int height)
@@ -141,6 +139,7 @@ void init_window()
 
         p_window = glfwCreateWindow(WIDTH, HEIGHT, "Vulkan", NULL, NULL);
         glfwSetFramebufferSizeCallback(p_window, framebuffer_resize_callback);
+        glfwSetWindowSizeLimits(p_window, 200, 200, GLFW_DONT_CARE, GLFW_DONT_CARE); // TODO: Doesn't work on wayfire (crashes when width or height is zero)
 }
 
 

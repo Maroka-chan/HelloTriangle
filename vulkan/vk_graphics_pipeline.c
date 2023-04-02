@@ -71,9 +71,9 @@ struct GraphicsPipelineDetails create_graphics_pipeline(
         vertexInputInfo.vertexBindingDescriptionCount = 1;
         vertexInputInfo.pVertexBindingDescriptions = &binding_description;
 
-        VkVertexInputAttributeDescription *attr_description = get_attribute_description();
-        vertexInputInfo.vertexAttributeDescriptionCount = ARRAY_PTR_SIZE(attr_description, VkVertexInputAttributeDescription);
-        vertexInputInfo.pVertexAttributeDescriptions = attr_description;
+        struct VertexAttributeDescriptionArray attr_description = get_attribute_description();
+        vertexInputInfo.vertexAttributeDescriptionCount = attr_description.size;
+        vertexInputInfo.pVertexAttributeDescriptions = attr_description.data;
 
         VkPipelineInputAssemblyStateCreateInfo inputAssembly = {};
         inputAssembly.sType =
@@ -187,7 +187,6 @@ struct GraphicsPipelineDetails create_graphics_pipeline(
 
         pipelineInfo.basePipelineHandle = VK_NULL_HANDLE; // Optional
         pipelineInfo.basePipelineIndex = -1; // Optional
-
         VkPipeline graphicsPipeline;
         if (vkCreateGraphicsPipelines(*p_device, VK_NULL_HANDLE, 1,
                                 &pipelineInfo, NULL,
@@ -196,9 +195,10 @@ struct GraphicsPipelineDetails create_graphics_pipeline(
                 exit(EXIT_FAILURE);
         }
 
-
+        
 
         // ==== Cleanup ====
+        free(attr_description.data);
         vkDestroyShaderModule(*p_device, vertShaderModule, NULL);
         vkDestroyShaderModule(*p_device, fragShaderModule, NULL);
 
