@@ -26,6 +26,10 @@ void *list_get(struct _List *list, uint32_t index) {
     return list->elements[index];
 }
 
+void **list_get_elements(struct _List *list) {
+        return list->elements;
+}
+
 void list_add(struct _List *list, void *element) {
     if (list->size == list->capacity)
         list_resize(list, list->capacity * 2);

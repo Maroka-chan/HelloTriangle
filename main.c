@@ -31,6 +31,7 @@
 #include "vulkan/vk_vertex_data.h"
 
 #include "utils/array.h"
+#include "datastructures/list.h"
 
 #define foreach(item, list) \
         for(typeof(list[0]) *item = list; item < (&list)[1]; item++)
@@ -112,11 +113,7 @@ static uint32_t currentFrame = 0;
 
 static bool frameBufferResized = false;
 
-static const Vertex vertices[] = {
-    {{0.0f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-    {{0.5f, 0.5f}, {1.0f, 1.0f, 0.0f}},
-    {{-0.5f, 0.5f}, {1.0f, 0.0f, 1.0f}}
-};
+static List *vertices;
 
 
 
@@ -355,9 +352,22 @@ static uint32_t find_memory_type(
 
 static void create_vertex_buffer()
 {
+        Vertex vertex_data[] = {
+            {{-0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+            {{0.5f, 0.5f}, {1.0f, 1.0f, 0.0f}},
+            {{-0.5f, 0.5f}, {1.0f, 0.0f, 1.0f}},
+            {{-0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}},
+            {{0.5f, 0.0f}, {1.0f, 0.0f, 1.0f}},
+            {{0.5f, 0.5f}, {1.0f, 1.0f, 0.0f}}
+        };
+
+        vertices = list_create(10);
+        for (size_t i = 0; i < ARRAY_SIZE(vertex_data); i++)
+                list_add(vertices, (void*)&vertex_data[i]);
+
         VkBufferCreateInfo bufferInfo = {};
         bufferInfo.sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
-        bufferInfo.size = sizeof(vertices);
+        bufferInfo.size = sizeof(Vertex) * list_size(vertices);
         bufferInfo.usage = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
         bufferInfo.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
 
@@ -389,7 +399,7 @@ static void create_vertex_buffer()
 
         void *data;
         vkMapMemory(device, vertexBufferMemory, 0, bufferInfo.size, 0, &data);
-        memcpy(data, vertices, (size_t) bufferInfo.size);
+        memcpy(data, *list_get_elements(vertices), (size_t) bufferInfo.size);
         vkUnmapMemory(device, vertexBufferMemory);
 }
 
@@ -420,7 +430,7 @@ void draw_frame()
                         &swapChainDetails.extent,
                         &graphicsPipelineDetails.graphics_pipeline,
                         commandBuffers[currentFrame], imageIndex,
-                        vertices, ARRAY_SIZE(vertices), vertexBuffer);
+                        list_size(vertices), vertexBuffer);
 
         VkSubmitInfo submitInfo = {};
         submitInfo.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;

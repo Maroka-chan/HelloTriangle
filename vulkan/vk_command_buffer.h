@@ -16,7 +16,6 @@ void record_command_buffer(
                 VkPipeline *p_graphics_pipeline,
                 VkCommandBuffer command_buffer,
                 uint32_t image_index,
-                const Vertex *vertices,
                 const uint32_t vertices_size,
                 VkBuffer p_vertex_buffer);
 
