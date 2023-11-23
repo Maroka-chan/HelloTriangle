@@ -36,6 +36,11 @@ struct QueueFamilyIndices find_queue_families(VkPhysicalDevice physical_device,
         // that supports both in the same queue for improved performance.
         // TODO Implement Linked List data structure
         for (size_t i = 0; i < queueFamilyCount; i++) {
+                if (queueFamilies[i].queueFlags & VK_QUEUE_TRANSFER_BIT 
+                                | VK_QUEUE_GRAPHICS_BIT) {
+                        set_value(indices.transfer_family, i);
+                }
+
                 if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
                         set_value(indices.graphics_family, i);
                 }

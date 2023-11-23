@@ -2,6 +2,7 @@
 #include <vulkan/vulkan_core.h>
 
 #include "vk_queue_family.h"
+#include "../datastructures/list.h"
 
 
 extern const bool ENABLE_VALIDATION_LAYERS;
@@ -24,9 +25,13 @@ VkResult create_logical_device(
         // since we do not have a Set data structure
         if (indices.graphics_family.value == indices.present_family.value)
                 queueCount = 1;
-        else queueCount = 2;
+        else 
+                queueCount = 2;
+        
         // TODO Implement List data structure
-        VkDeviceQueueCreateInfo queueCreateInfos[queueCount];
+        List *queueCreateInfos = list_create(queueCount);
+        // VkDeviceQueueCreateInfo queueCreateInfos[queueCount];
+        
         // TODO Implement Set data structure
         // The index to the queue families are supposed to
         // only be added once if they are the same, but they will
@@ -47,7 +52,7 @@ VkResult create_logical_device(
                 queueCreateInfo.queueFamilyIndex = queueFamily;
                 queueCreateInfo.queueCount = 1;
                 queueCreateInfo.pQueuePriorities = &queuePriority;
-                queueCreateInfos[i] = queueCreateInfo;
+                list_add(queueCreateInfos, (void*)&queueCreateInfo);
         }
 
         VkPhysicalDeviceFeatures deviceFeatures = {};
@@ -55,7 +60,7 @@ VkResult create_logical_device(
 
         VkDeviceCreateInfo createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-        createInfo.pQueueCreateInfos = queueCreateInfos;
+        createInfo.pQueueCreateInfos = *list_get_elements(queueCreateInfos);
         createInfo.queueCreateInfoCount = queueCount;
 
         createInfo.pEnabledFeatures = &deviceFeatures;

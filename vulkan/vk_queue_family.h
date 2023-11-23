@@ -7,6 +7,7 @@
 struct QueueFamilyIndices {
         Option(uint32_t) graphics_family;
         Option(uint32_t) present_family;
+        Option(uint32_t) transfer_family;
 };
 
 void create_queue(VkDevice *p_device, uint32_t queue_family, VkQueue *p_queue);
