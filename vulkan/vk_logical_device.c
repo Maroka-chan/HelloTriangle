@@ -28,10 +28,10 @@ VkResult create_logical_device(
         else 
                 queueCount = 2;
         
-        // TODO Implement List data structure
-        List *queueCreateInfos = list_create(queueCount);
-        // VkDeviceQueueCreateInfo queueCreateInfos[queueCount];
-        
+        // Vulkan expects pQueueCreateInfos to point at a contiguous array of
+        // VkDeviceQueueCreateInfo structs, so use a plain stack array here.
+        VkDeviceQueueCreateInfo queueCreateInfos[queueCount];
+
         // TODO Implement Set data structure
         // The index to the queue families are supposed to
         // only be added once if they are the same, but they will
@@ -52,7 +52,7 @@ VkResult create_logical_device(
                 queueCreateInfo.queueFamilyIndex = queueFamily;
                 queueCreateInfo.queueCount = 1;
                 queueCreateInfo.pQueuePriorities = &queuePriority;
-                list_add(queueCreateInfos, (void*)&queueCreateInfo);
+                queueCreateInfos[i] = queueCreateInfo;
         }
 
         VkPhysicalDeviceFeatures deviceFeatures = {};
@@ -60,7 +60,7 @@ VkResult create_logical_device(
 
         VkDeviceCreateInfo createInfo = {};
         createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-        createInfo.pQueueCreateInfos = *list_get_elements(queueCreateInfos);
+        createInfo.pQueueCreateInfos = queueCreateInfos;
         createInfo.queueCreateInfoCount = queueCount;
 
         createInfo.pEnabledFeatures = &deviceFeatures;
