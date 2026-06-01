@@ -84,38 +84,65 @@
         };
       });
 
-      devShells = forAllSystems (pkgs: {
+      devShells = forAllSystems (pkgs: let
+        lib = pkgs.lib;
+
+        # Common tooling and the Wayland backend (the default).
+        commonPackages = with pkgs; [
+          clang
+          gnumake
+          pkg-config
+          shaderc # glslc
+          glfw
+          cglm
+          vulkan-headers
+          vulkan-loader
+          vulkan-validation-layers
+          vulkan-tools # vulkaninfo, for debugging
+          wayland
+          wayland-protocols
+          libxkbcommon
+          libdecor
+        ];
+
+        # X11 backend libs, only needed for `make X11=1`.
+        x11Packages = with pkgs; [
+          libx11
+          libxxf86vm
+          libxrandr
+          libxi
+        ];
+
+        baseShellHook = ''
+          export VK_LAYER_PATH="${pkgs.vulkan-validation-layers}/share/vulkan/explicit_layer.d"
+          export LD_LIBRARY_PATH="${
+            lib.makeLibraryPath [
+              pkgs.vulkan-loader
+              pkgs.wayland
+              pkgs.libxkbcommon
+              pkgs.libdecor
+            ]
+          }''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+        '';
+      in {
         default = pkgs.mkShell {
-          packages = with pkgs; [
-            clang
-            gnumake
-            pkg-config
-            shaderc # glslc
-            glfw
-            cglm
-            vulkan-headers
-            vulkan-loader
-            vulkan-validation-layers
-            vulkan-tools # vulkaninfo, for debugging
-            wayland
-            wayland-protocols
-            libxkbcommon
-            libdecor
-          ];
-
-          shellHook = ''
-            export VK_LAYER_PATH="${pkgs.vulkan-validation-layers}/share/vulkan/explicit_layer.d"
-            export LD_LIBRARY_PATH="${
-              pkgs.lib.makeLibraryPath [
-                pkgs.vulkan-loader
-                pkgs.wayland
-                pkgs.libxkbcommon
-                pkgs.libdecor
-              ]
-            }''${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
-
+          packages = commonPackages;
+          shellHook = baseShellHook + ''
             echo "HelloTriangle dev shell (Wayland)"
-            echo "  build : make"
+            echo "  build : make            (Wayland-only)"
+            echo "  run   : ./VulkanTest   (from the repo root, shaders are loaded relatively)"
+            echo "  X11   : use 'nix develop .#x11' to build with 'make X11=1'"
+          '';
+        };
+
+        # Adds the X11 backend libs on top of the default shell so that
+        # `make X11=1` can link.
+        x11 = pkgs.mkShell {
+          packages = commonPackages ++ x11Packages;
+          shellHook = baseShellHook + ''
+            echo "HelloTriangle dev shell (Wayland + X11)"
+            echo "  build : make            (Wayland-only)"
+            echo "  build : make X11=1      (also link X11)"
             echo "  run   : ./VulkanTest   (from the repo root, shaders are loaded relatively)"
           '';
         };
